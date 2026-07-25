@@ -324,7 +324,7 @@ function RoutineEditor({ routine, onClose, onSave, onMove, onArchive, onDelete }
       <div className="sheet-handle" />
       <header><div><p className="eyebrow">{routine ? 'MANAGE ROUTINE' : 'NEW ROUTINE'}</p><h2 id="routine-editor-title">{routine ? 'Routine settings' : 'Add to your plan'}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><AppIcon name="close" /></button></header>
       <form onSubmit={(event) => { event.preventDefault(); const clean = name.trim(); if (clean) void onSave(clean, color) }}>
-        <label>Routine name<input autoFocus maxLength={100} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Morning walk" /></label>
+        <label>Routine name<input maxLength={100} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Morning walk" /></label>
         <fieldset><legend>Routine colour</legend><div className="color-palette">{routinePalette.map((value) => <button type="button" key={value} className={value === color ? 'selected' : ''} style={{ backgroundColor: value }} onClick={() => setColor(value)} aria-label={`Choose ${value}`} />)}</div></fieldset>
         <button className="primary-button sheet-save" type="submit">{routine ? 'Save changes' : 'Add routine'}</button>
       </form>
@@ -448,7 +448,7 @@ function TaskEditor({ task, onClose, onSave, onArchive }: { task: Task; onClose:
     <section className="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="task-editor-title">
       <div className="sheet-handle" /><header><div><p className="eyebrow">TASK DETAILS</p><h2 id="task-editor-title">Edit task</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><AppIcon name="close" /></button></header>
       <form onSubmit={(event) => { event.preventDefault(); const clean = title.trim(); if (clean) void onSave(task, { title: clean, notes: notes.trim() || null, due_time: dueTime || null, priority }) }}>
-        <label>Task name<input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+        <label>Task name<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
         <label>Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional note" /></label>
         <div className="field-pair"><label>Priority<select value={priority} onChange={(event) => setPriority(event.target.value as Task['priority'])}><option value="none">None</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label><label>Due time<input type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} /></label></div>
         <button className="primary-button sheet-save" type="submit">Save changes</button>

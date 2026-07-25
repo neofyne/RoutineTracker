@@ -195,6 +195,12 @@ button:disabled { cursor: not-allowed; }
 .auth-switch { width: 100%; margin-top: 13px; padding: 5px; border: 0; background: transparent; color: var(--brand); font-size: .8rem; font-weight: 800; }
 .form-message { color: var(--danger); font-size: .78rem; }
 
+@media (max-width: 679px) {
+  input, select, textarea, .search-field input {
+    font-size: 16px;
+  }
+}
+
 @media (min-width: 680px) {
   .app-shell { padding-inline: 28px; }
   .page-content { padding-top: 32px; }
