@@ -10,6 +10,8 @@
 | Supabase project | `mmrpxjdwpvjqqasesltw` | Authentication and app data | Dashboard display name is currently `RoutineTracker`; planned display rename: `DayPlan`. |
 | Supabase site URL | `https://dayplan.pages.dev` | Default passwordless-auth return URL | Keep `http://127.0.0.1:5173` as a local redirect URL. |
 
+DayPlan’s browser, sharing, and home-screen branding is provided by `public/dayplan-icon.svg`, its PNG home-screen version, and `public/manifest.webmanifest`.
+
 ### Historical deployments — do not treat as the primary app
 
 - `https://routinetracker.neerus-kitchen.workers.dev/` — initial Cloudflare Worker deployment. The `neerus-kitchen` portion is the account-wide Workers subdomain, not a connection to the Neeru’s Kitchen app.

@@ -1,0 +1,17 @@
+{
+  "name": "DayPlan",
+  "short_name": "DayPlan",
+  "description": "A calm, mobile-first routine and daily task planner.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f5",
+  "theme_color": "#0b3b35",
+  "icons": [
+    {
+      "src": "/dayplan-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
