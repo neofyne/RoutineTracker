@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 
-type View = 'routines' | 'tasks'
+type View = 'routines' | 'tasks' | 'account'
 type Theme = 'light' | 'dark'
 
 const today = new Date()
@@ -10,7 +10,7 @@ const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() 
 const dayLabel = (date: Date) => date.toLocaleDateString(undefined, { weekday: 'short' })
 const shortDate = (date: Date) => date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 
-function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 'arrow' }) {
+function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 'arrow' | 'user' }) {
   const paths = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
     check: <path d="m5 12 4.2 4L19.5 6" />,
@@ -18,6 +18,7 @@ function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 
     sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
     moon: <path d="M20.2 15.5A8.4 8.4 0 0 1 8.5 3.8 8.5 8.5 0 1 0 20.2 15.5Z" />,
     arrow: <path d="m14 6-6 6 6 6" />,
+    user: <><circle cx="12" cy="8" r="3.5" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0" /></>,
   }
   return <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>
 }
@@ -68,16 +69,27 @@ export function App() {
   return <main className="app-shell">
     <header className="topbar">
       <div className="brand"><span className="brand-mark"><AppIcon name="check" /></span><span>DayPlan</span></div>
-      <div className="topbar-actions"><button className="sign-out-button" onClick={signOut}>Sign out</button><button className="icon-button" aria-label="Toggle colour theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}><AppIcon name={theme === 'light' ? 'moon' : 'sun'} /></button></div>
+      <div className="topbar-actions"><button className="icon-button" aria-label="Toggle colour theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}><AppIcon name={theme === 'light' ? 'moon' : 'sun'} /></button></div>
     </header>
     <section className="page-content">
-      {view === 'routines' ? <RoutineStarter userId={session.user.id} /> : <TasksStarter userId={session.user.id} />}
+      {view === 'routines' ? <RoutineStarter userId={session.user.id} /> : view === 'tasks' ? <TasksStarter userId={session.user.id} /> : <AccountScreen email={session.user.email ?? ''} onSignOut={signOut} />}
     </section>
     <nav className="bottom-nav" aria-label="Primary navigation">
       <button className={view === 'routines' ? 'active' : ''} onClick={() => setView('routines')}><AppIcon name="grid" /><span>Routines</span></button>
       <button className={view === 'tasks' ? 'active' : ''} onClick={() => setView('tasks')}><AppIcon name="check" /><span>Daily Tasks</span></button>
+      <button className={view === 'account' ? 'active' : ''} onClick={() => setView('account')}><AppIcon name="user" /><span>Account</span></button>
     </nav>
   </main>
+}
+
+function AccountScreen({ email, onSignOut }: { email: string; onSignOut: () => void }) {
+  return <section className="account-screen">
+    <p className="eyebrow">ACCOUNT</p>
+    <h1>Your DayPlan</h1>
+    <div className="account-card"><div className="account-avatar"><AppIcon name="user" /></div><div><strong>Signed in as</strong><p>{email}</p></div></div>
+    <button className="sign-out-primary" onClick={onSignOut}>Sign out of DayPlan</button>
+    <p className="account-help">This signs out only on this device. Your routines and tasks stay safely saved in your private account.</p>
+  </section>
 }
 
 function AuthScreen({ email, setEmail, password, setPassword, mode, setMode, message, onSubmit, theme, setTheme }: { email: string; setEmail: (value: string) => void; password: string; setPassword: (value: string) => void; mode: 'signin' | 'signup'; setMode: (value: 'signin' | 'signup') => void; message: string; onSubmit: (event: FormEvent) => void; theme: Theme; setTheme: (theme: Theme) => void }) {
