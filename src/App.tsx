@@ -56,12 +56,19 @@ export function App() {
     setAuthMessage(authMode === 'signup' ? 'Account created. You are signed in.' : '')
   }
 
+  async function signOut() {
+    await supabase?.auth.signOut()
+    setSession(null)
+    setAuthPassword('')
+    setAuthMessage('')
+  }
+
   if (!session) return <AuthScreen email={authEmail} setEmail={setAuthEmail} password={authPassword} setPassword={setAuthPassword} mode={authMode} setMode={setAuthMode} message={authMessage} onSubmit={authenticate} theme={theme} setTheme={setTheme} />
 
   return <main className="app-shell">
     <header className="topbar">
       <div className="brand"><span className="brand-mark"><AppIcon name="check" /></span><span>DayPlan</span></div>
-      <button className="icon-button" aria-label="Toggle colour theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}><AppIcon name={theme === 'light' ? 'moon' : 'sun'} /></button>
+      <div className="topbar-actions"><button className="sign-out-button" onClick={signOut}>Sign out</button><button className="icon-button" aria-label="Toggle colour theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}><AppIcon name={theme === 'light' ? 'moon' : 'sun'} /></button></div>
     </header>
     <section className="page-content">
       {view === 'routines' ? <RoutineStarter userId={session.user.id} /> : <TasksStarter userId={session.user.id} />}
