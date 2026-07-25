@@ -29,7 +29,9 @@ The visual direction is **enterprise-grade personal productivity**: calm, precis
 
 ### Mobile layout rules
 
-- Routine Tracker uses a horizontally scrollable day grid with the task column and Total column kept visible where technically practical; month/week navigation remains easy to reach.
+- Routine Tracker has two coordinated views: **Today** for fast one-tap completion and **Week** for the complete seven-day sheet.
+- On mobile, each weekly routine is a full-width card: its complete name and weekly total sit above seven equal day cells. This preserves the original grid logic without squeezing names, days, and totals into one narrow row.
+- Completed weekly cells use the routine colour and show the recalculated running count. Every day remains available for deliberate backfilling; archived routines are read-only.
 - A compact mobile header shows the current week and the most important action, with secondary actions in a bottom sheet or overflow menu.
 - Daily Tasks prioritises a large, fast add field and clear pending/completed blocks; swipe actions include labelled visual previews and accessible action buttons.
 - Bottom navigation exposes the two primary modules: **Routines** and **Daily Tasks**. No generic dashboard is needed for V1.
@@ -258,3 +260,4 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 | 2026-07-25 | Renamed user-facing product branding to DayPlan. | Browser title, primary in-app branding, and living documentation updated. |
 | 2026-07-25 | Replaced magic-link sign-in with email and password authentication for private family use. | Supabase email confirmation disabled; removes the shared free magic-email rate limit from normal sign-in. |
 | 2026-07-25 | Replaced the mobile routine spreadsheet with a phone-first daily routine list. | Seven-day history is retained as compact progress markers; full titles, completion control, and weekly total fit without horizontal scrolling. |
+| 2026-07-25 | Rebuilt DayPlan around coordinated Today and Week views. | Phone-width browser QA confirms full routine names, seven tappable day cells, running counts, totals, undo, dedicated edit sheets, archive/restore, colour, reorder controls, and no title-to-rename shortcut. Daily Tasks now uses the same card, date-navigation, and edit-sheet system. |
