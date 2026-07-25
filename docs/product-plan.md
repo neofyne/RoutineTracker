@@ -1,11 +1,11 @@
-# Routine Tracker — Living Product & Implementation Plan
+# DayPlan — Living Product & Implementation Plan
 
 **Status:** Draft v1 — 25 July 2026  
 **Purpose:** The single maintained plan for scope, decisions, delivery progress, and later feature additions.
 
 ## 1. Product statement
 
-Routine Tracker is a calm, spreadsheet-like personal productivity app with two deliberately separate modes:
+DayPlan is a calm, spreadsheet-like personal productivity app with two deliberately separate modes:
 
 1. **Routine Tracker** for recurring practices, recorded in weekly grids with a per-routine running completion count.
 2. **Daily Tasks** for one-time tasks, organised by date with quick completion and carry-forward actions.
@@ -167,10 +167,10 @@ The original specification is strong. The additions below close the common gaps 
 | Data fetching/offline UX | TanStack Query with optimistic updates and persisted cache |
 | Drag/reorder | dnd-kit |
 | Gestures | Pointer-event swipe component, designed alongside accessible button alternatives |
-| Hosting | Vercel production deployment connected to GitHub |
+| Hosting | Cloudflare Pages production deployment connected to GitHub (`https://dayplan.pages.dev/`) |
 | Source control | Private GitHub repository |
 
-This is the lowest-friction setup for a first authenticated web app: Supabase handles the important backend pieces, while Vercel deploys every push automatically. Cloudflare Pages is a good alternative, but it is not simpler for this project. Netlify is also viable, but offers no meaningful advantage here.
+Supabase handles authentication and data, while Cloudflare Pages deploys every push to `main` automatically. The deployment naming and service inventory live in `docs/deployment.md` and must be updated when a provider, URL, project name, or repository name changes.
 
 ## 6. Data model (initial)
 
@@ -192,7 +192,7 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 - [x] Create private GitHub repository.
 - [x] Create Supabase project and configure local/dev environment variables.
 - [x] Initialise React/TypeScript/Vite app and production build baseline.
-- [ ] Connect Cloudflare Pages to the repository; create preview and production environments.
+- [x] Connect Cloudflare Pages to the repository and create the production deployment at `https://dayplan.pages.dev/`.
 - [x] Build application shell, responsive layout, theme, authentication, and empty states.
 - [ ] Build first-use setup, a Today shortcut, standard confirmation/undo feedback, and sync-status patterns.
 - **Exit condition:** a signed-in user reaches a protected app shell; preview deployment works.
@@ -255,3 +255,5 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 | 2026-07-25 | Added workflow-led product improvements, recovery rules, and core user journeys. | V1 essentials and post-V1 scope clarified. |
 | 2026-07-25 | Implemented Phase 0 foundation and applied the initial Supabase migration. | Production build passed; Cloudflare Pages connection remains pending. |
 | 2026-07-25 | Added routine search, rename, colour controls, archive flow, and local-calendar date handling. | Production build passed. |
+| 2026-07-25 | Renamed user-facing product branding to DayPlan. | Browser title, primary in-app branding, and living documentation updated. |
+| 2026-07-25 | Replaced magic-link sign-in with email and password authentication for private family use. | Supabase email confirmation disabled; removes the shared free magic-email rate limit from normal sign-in. |

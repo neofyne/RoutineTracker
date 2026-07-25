@@ -27,6 +27,8 @@ export function App() {
   const [view, setView] = useState<View>('routines')
   const [theme, setTheme] = useState<Theme>('light')
   const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
   const [authMessage, setAuthMessage] = useState('')
 
   useEffect(() => {
@@ -43,18 +45,22 @@ export function App() {
     window.localStorage.setItem('routine-theme', theme)
   }, [theme])
 
-  async function sendMagicLink(event: FormEvent) {
+  async function authenticate(event: FormEvent) {
     event.preventDefault()
     if (!supabase) return setAuthMessage('Supabase is not configured yet.')
-    const { error } = await supabase.auth.signInWithOtp({ email: authEmail, options: { emailRedirectTo: window.location.origin } })
-    setAuthMessage(error ? error.message : 'Check your email for the secure sign-in link.')
+    if (authPassword.length < 8) return setAuthMessage('Use a password with at least 8 characters.')
+    const result = authMode === 'signin'
+      ? await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword })
+      : await supabase.auth.signUp({ email: authEmail, password: authPassword })
+    if (result.error) return setAuthMessage(result.error.message)
+    setAuthMessage(authMode === 'signup' ? 'Account created. You are signed in.' : '')
   }
 
-  if (!session) return <AuthScreen email={authEmail} setEmail={setAuthEmail} message={authMessage} onSubmit={sendMagicLink} theme={theme} setTheme={setTheme} />
+  if (!session) return <AuthScreen email={authEmail} setEmail={setAuthEmail} password={authPassword} setPassword={setAuthPassword} mode={authMode} setMode={setAuthMode} message={authMessage} onSubmit={authenticate} theme={theme} setTheme={setTheme} />
 
   return <main className="app-shell">
     <header className="topbar">
-      <div className="brand"><span className="brand-mark"><AppIcon name="check" /></span><span>Routine</span></div>
+      <div className="brand"><span className="brand-mark"><AppIcon name="check" /></span><span>DayPlan</span></div>
       <button className="icon-button" aria-label="Toggle colour theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}><AppIcon name={theme === 'light' ? 'moon' : 'sun'} /></button>
     </header>
     <section className="page-content">
@@ -67,21 +73,26 @@ export function App() {
   </main>
 }
 
-function AuthScreen({ email, setEmail, message, onSubmit, theme, setTheme }: { email: string; setEmail: (value: string) => void; message: string; onSubmit: (event: FormEvent) => void; theme: Theme; setTheme: (theme: Theme) => void }) {
+function AuthScreen({ email, setEmail, password, setPassword, mode, setMode, message, onSubmit, theme, setTheme }: { email: string; setEmail: (value: string) => void; password: string; setPassword: (value: string) => void; mode: 'signin' | 'signup'; setMode: (value: 'signin' | 'signup') => void; message: string; onSubmit: (event: FormEvent) => void; theme: Theme; setTheme: (theme: Theme) => void }) {
   return <main className="auth-screen">
     <button className="icon-button theme-control" aria-label="Toggle colour theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}><AppIcon name={theme === 'light' ? 'moon' : 'sun'} /></button>
     <div className="auth-card">
       <div className="brand-mark large"><AppIcon name="check" /></div>
-      <p className="eyebrow">YOUR DAILY SYSTEM</p>
+      <p className="eyebrow">DAYPLAN · YOUR DAILY SYSTEM</p>
       <h1>Small actions.<br />Clear progress.</h1>
       <p className="muted">A focused home for your routines and one-time tasks.</p>
       <form onSubmit={onSubmit} className="auth-form">
         <label htmlFor="email">Email address</label>
-        <input id="email" type="email" required placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} />
-        <button className="primary-button" type="submit">Continue with email <span>→</span></button>
+        <input id="email" type="email" autoComplete="email" required placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} />
+        <label htmlFor="password">Password</label>
+        <input id="password" type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={8} required placeholder="At least 8 characters" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <button className="primary-button" type="submit">{mode === 'signin' ? 'Sign in' : 'Create account'} <span>→</span></button>
       </form>
       {message && <p className="form-message" role="status">{message}</p>}
-      <p className="fine-print">We’ll send a secure, password-free sign-in link.</p>
+      <button className="auth-switch" type="button" onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}>
+        {mode === 'signin' ? 'New to DayPlan? Create a private account' : 'Already have an account? Sign in'}
+      </button>
+      <p className="fine-print">Private account access for your family. No email link required.</p>
     </div>
   </main>
 }
