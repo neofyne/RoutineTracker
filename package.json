@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint . --max-warnings=0",
     "preview": "vite preview",
-    "deploy:cloudflare": "npm run build && npx wrangler pages deploy dist --project-name=routine-tracker"
+    "deploy:cloudflare": "npm run build && npx wrangler pages deploy dist --project-name=dayplan"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
