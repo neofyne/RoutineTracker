@@ -257,3 +257,4 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 | 2026-07-25 | Added routine search, rename, colour controls, archive flow, and local-calendar date handling. | Production build passed. |
 | 2026-07-25 | Renamed user-facing product branding to DayPlan. | Browser title, primary in-app branding, and living documentation updated. |
 | 2026-07-25 | Replaced magic-link sign-in with email and password authentication for private family use. | Supabase email confirmation disabled; removes the shared free magic-email rate limit from normal sign-in. |
+| 2026-07-25 | Replaced the mobile routine spreadsheet with a phone-first daily routine list. | Seven-day history is retained as compact progress markers; full titles, completion control, and weekly total fit without horizontal scrolling. |
