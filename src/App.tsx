@@ -34,7 +34,7 @@ const initialTaskDate = () => {
   return isDateKey(queryDate) ? queryDate : isDateKey(savedDate) ? savedDate : dateKey(today)
 }
 
-function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 'arrow' | 'user' | 'more' | 'close' | 'calendar' | 'list' | 'archive' | 'trash' }) {
+function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 'arrow' | 'user' | 'more' | 'close' | 'calendar' | 'list' | 'archive' | 'trash' | 'grip' }) {
   const paths = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
     check: <path d="m5 12 4.2 4L19.5 6" />,
@@ -49,6 +49,7 @@ function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 
     list: <><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" /></>,
     archive: <><path d="M4 7h16v13H4zM3 3h18v4H3zM9 11h6" /></>,
     trash: <><path d="M4 7h16M9 3h6l1 4H8l1-4ZM7 7l1 14h8l1-14" /></>,
+    grip: <><circle cx="8" cy="6" r="1.25" fill="currentColor" stroke="none" /><circle cx="16" cy="6" r="1.25" fill="currentColor" stroke="none" /><circle cx="8" cy="12" r="1.25" fill="currentColor" stroke="none" /><circle cx="16" cy="12" r="1.25" fill="currentColor" stroke="none" /><circle cx="8" cy="18" r="1.25" fill="currentColor" stroke="none" /><circle cx="16" cy="18" r="1.25" fill="currentColor" stroke="none" /></>,
   }
   return <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>
 }
@@ -184,8 +185,17 @@ function RoutineTracker({ userId }: { userId: string }) {
   const [search, setSearch] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [editor, setEditor] = useState<Routine | 'new' | null>(null)
+  const [reorderMode, setReorderMode] = useState(false)
+  const [reorderDraft, setReorderDraft] = useState<string[]>([])
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [reorderSaving, setReorderSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [undo, setUndo] = useState<UndoAction | null>(null)
+  const reorderListRef = useRef<HTMLDivElement | null>(null)
+  const reorderDraftRef = useRef<string[]>([])
+  const dragStartDraftRef = useRef<string[]>([])
+  const draggingIdRef = useRef<string | null>(null)
+  const reorderSavingRef = useRef(false)
 
   const week = useMemo(() => {
     const start = new Date(today)
@@ -222,6 +232,8 @@ function RoutineTracker({ userId }: { userId: string }) {
     .filter((routine) => routine.name.toLowerCase().includes(search.trim().toLowerCase()))
     .filter((routine) => showArchived ? Boolean(routine.archived_at) : routine.started_on <= endKey && (!routine.archived_at || routine.archived_at.slice(0, 10) >= startKey))
   const active = matching.filter((routine) => !routine.archived_at)
+  const reorderable = routines.filter((routine) => !routine.archived_at && routine.started_on <= endKey).sort((a, b) => a.sort_order - b.sort_order)
+  const reorderItems = reorderDraft.map((id) => routines.find((routine) => routine.id === id)).filter((routine): routine is Routine => Boolean(routine))
   const completedSelected = active.filter((routine) => completions.some((item) => item.routine_id === routine.id && item.completed_on === selectedDate)).length
 
   const rowFor = (routineId: string) => completions.filter((item) => item.routine_id === routineId).sort((a, b) => a.completed_on.localeCompare(b.completed_on))
@@ -229,6 +241,99 @@ function RoutineTracker({ userId }: { userId: string }) {
     const row = rowFor(routineId)
     const index = row.findIndex((item) => item.completed_on === date)
     return index < 0 ? null : index + 1
+  }
+
+  function moveDraftItem(ids: string[], id: string, targetIndex: number) {
+    const currentIndex = ids.indexOf(id)
+    if (currentIndex < 0 || targetIndex < 0 || currentIndex === targetIndex) return ids
+    const next = [...ids]
+    next.splice(currentIndex, 1)
+    next.splice(Math.min(targetIndex, next.length), 0, id)
+    return next
+  }
+
+  function setDraft(ids: string[]) {
+    reorderDraftRef.current = ids
+    setReorderDraft(ids)
+  }
+
+  function openReorderMode() {
+    setSearch('')
+    setShowArchived(false)
+    setMode('today')
+    setDraft(reorderable.map((routine) => routine.id))
+    setReorderMode(true)
+  }
+
+  async function persistRoutineOrder(ids: string[]) {
+    if (!supabase || reorderSavingRef.current) return
+    const client = supabase
+    const changes = ids.map((id, index) => ({ id, sort_order: index })).filter(({ id, sort_order }) => routines.find((routine) => routine.id === id)?.sort_order !== sort_order)
+    if (changes.length === 0) return
+    reorderSavingRef.current = true
+    setReorderSaving(true)
+    const results = await Promise.all(changes.map(({ id, sort_order }) => client.from('routines').update({ sort_order }).eq('id', id)))
+    const failed = results.find((result) => result.error)
+    if (failed?.error) {
+      const restored = routines.filter((routine) => ids.includes(routine.id)).sort((a, b) => a.sort_order - b.sort_order).map((routine) => routine.id)
+      setDraft(restored)
+      setMessage(`Order was not saved: ${failed.error.message}`)
+    } else {
+      const positions = new Map(ids.map((id, index) => [id, index]))
+      setRoutines((current) => current.map((routine) => positions.has(routine.id) ? { ...routine, sort_order: positions.get(routine.id) ?? routine.sort_order } : routine).sort((a, b) => a.sort_order - b.sort_order))
+      setMessage('')
+    }
+    reorderSavingRef.current = false
+    setReorderSaving(false)
+  }
+
+  function beginRoutineDrag(event: React.PointerEvent<HTMLButtonElement>, id: string) {
+    if (reorderSavingRef.current) return
+    event.preventDefault()
+    dragStartDraftRef.current = [...reorderDraftRef.current]
+    draggingIdRef.current = id
+    setDraggingId(id)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function moveRoutineDrag(event: React.PointerEvent<HTMLButtonElement>, id: string) {
+    if (draggingIdRef.current !== id || !reorderListRef.current) return
+    event.preventDefault()
+    const rows = Array.from(reorderListRef.current.querySelectorAll<HTMLElement>('[data-reorder-id]'))
+    let targetIndex = rows.findIndex((row) => event.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2)
+    if (targetIndex < 0) targetIndex = rows.length - 1
+    const next = moveDraftItem(reorderDraftRef.current, id, targetIndex)
+    if (next !== reorderDraftRef.current) setDraft(next)
+    const edge = 84
+    if (event.clientY < edge) window.scrollBy({ top: -14, behavior: 'auto' })
+    else if (event.clientY > window.innerHeight - edge) window.scrollBy({ top: 14, behavior: 'auto' })
+  }
+
+  function endRoutineDrag(event: React.PointerEvent<HTMLButtonElement>, id: string) {
+    if (draggingIdRef.current !== id) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    draggingIdRef.current = null
+    setDraggingId(null)
+    if (dragStartDraftRef.current.join('|') !== reorderDraftRef.current.join('|')) void persistRoutineOrder(reorderDraftRef.current)
+  }
+
+  function cancelRoutineDrag(event: React.PointerEvent<HTMLButtonElement>, id: string) {
+    if (draggingIdRef.current !== id) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    draggingIdRef.current = null
+    setDraggingId(null)
+    setDraft(dragStartDraftRef.current)
+  }
+
+  function moveRoutineWithKeyboard(event: React.KeyboardEvent<HTMLButtonElement>, id: string) {
+    if (!['ArrowUp', 'ArrowDown'].includes(event.key) || reorderSavingRef.current) return
+    event.preventDefault()
+    const currentIndex = reorderDraftRef.current.indexOf(id)
+    const targetIndex = Math.max(0, Math.min(reorderDraftRef.current.length - 1, currentIndex + (event.key === 'ArrowUp' ? -1 : 1)))
+    const next = moveDraftItem(reorderDraftRef.current, id, targetIndex)
+    if (next === reorderDraftRef.current) return
+    setDraft(next)
+    void persistRoutineOrder(next)
   }
 
   async function toggle(routine: Routine, date: string) {
@@ -308,23 +413,32 @@ function RoutineTracker({ userId }: { userId: string }) {
 
   return <>
     <section className="screen-heading">
-      <div><p className="eyebrow">ROUTINES</p><h1>{mode === 'today' ? (selectedDate === dateKey(today) ? 'Today' : selected.toLocaleDateString(undefined, { weekday: 'long' })) : 'Your week'}</h1><p>{mode === 'today' ? `${completedSelected} of ${active.length} complete · ${shortDate(selected)}` : `${shortDate(week[0])} – ${shortDate(week[6])}`}</p></div>
-      <button className="add-circle" onClick={() => setEditor('new')} aria-label="Add routine"><AppIcon name="plus" /></button>
+      <div><p className="eyebrow">ROUTINES</p><h1>{reorderMode ? 'Reorder' : mode === 'today' ? (selectedDate === dateKey(today) ? 'Today' : selected.toLocaleDateString(undefined, { weekday: 'long' })) : 'Your week'}</h1><p>{reorderMode ? `${reorderItems.length} routines · drag to arrange` : mode === 'today' ? `${completedSelected} of ${active.length} complete · ${shortDate(selected)}` : `${shortDate(week[0])} – ${shortDate(week[6])}`}</p></div>
+      {!reorderMode && <button className="add-circle" onClick={() => setEditor('new')} aria-label="Add routine"><AppIcon name="plus" /></button>}
     </section>
 
-    <div className="mode-switch" aria-label="Routine view">
+    {!reorderMode && <><div className="mode-switch" aria-label="Routine view">
       <button className={mode === 'today' ? 'active' : ''} onClick={() => setMode('today')}><AppIcon name="list" />Today</button>
       <button className={mode === 'week' ? 'active' : ''} onClick={() => setMode('week')}><AppIcon name="calendar" />Week</button>
     </div>
 
     <WeekNavigator week={week} selectedDate={selectedDate} onSelect={(date) => { setSelectedDate(date); setMode('today') }} onPrevious={() => setWeekOffset((value) => value - 1)} onNext={() => setWeekOffset((value) => value + 1)} onToday={() => { setWeekOffset(0); setSelectedDate(dateKey(today)) }} />
+    </>}
 
-    <div className="tracker-tools">
-      <label className="search-field"><span aria-hidden>⌕</span><input aria-label="Search routines" placeholder="Search routines" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
-      <button className={showArchived ? 'active' : ''} onClick={() => setShowArchived((value) => !value)}><AppIcon name="archive" /><span>{showArchived ? 'Archived' : 'Archive'}</span></button>
+    <div className={`tracker-tools ${reorderMode ? 'reorder-active' : ''}`}>
+      {reorderMode ? <div className="reorder-guidance"><strong>Arrange your list</strong><span>Hold a handle and drag</span></div> : <label className="search-field"><span aria-hidden>⌕</span><input aria-label="Search routines" placeholder="Search routines" value={search} onChange={(event) => setSearch(event.target.value)} /></label>}
+      <button className={reorderMode ? 'active' : ''} disabled={reorderSaving || reorderable.length < 2} onClick={() => reorderMode ? setReorderMode(false) : openReorderMode()}><AppIcon name={reorderMode ? 'check' : 'grip'} /><span>{reorderMode ? 'Done' : 'Reorder'}</span></button>
+      {!reorderMode && <button className={showArchived ? 'active' : ''} onClick={() => setShowArchived((value) => !value)}><AppIcon name="archive" /><span>{showArchived ? 'Archived' : 'Archive'}</span></button>}
     </div>
 
-    {matching.length === 0 ? <EmptyState title={showArchived ? 'No archived routines' : search ? 'No matching routines' : 'Add your first routine'} copy={showArchived ? 'Archived routines stay here until you restore or delete them.' : 'Create as many routines as you need. Nothing is capped.'} action={!showArchived && !search ? <button className="primary-button" onClick={() => setEditor('new')}><AppIcon name="plus" />Add routine</button> : null} /> :
+    {reorderMode ? <div className="reorder-list" ref={reorderListRef} aria-label="Reorder routines">
+      {reorderItems.map((routine, index) => <article className={`reorder-row ${draggingId === routine.id ? 'dragging' : ''}`} data-reorder-id={routine.id} key={routine.id} style={{ '--routine-color': routine.color } as React.CSSProperties}>
+        <i aria-hidden />
+        <div><strong>{routine.name}</strong><span>Position {index + 1} of {reorderItems.length} · {rowFor(routine.id).length}/7 this week</span></div>
+        <button className="reorder-handle" disabled={reorderSaving} aria-label={`Drag ${routine.name}. Position ${index + 1} of ${reorderItems.length}. Use arrow keys to move.`} onPointerDown={(event) => beginRoutineDrag(event, routine.id)} onPointerMove={(event) => moveRoutineDrag(event, routine.id)} onPointerUp={(event) => endRoutineDrag(event, routine.id)} onPointerCancel={(event) => cancelRoutineDrag(event, routine.id)} onKeyDown={(event) => moveRoutineWithKeyboard(event, routine.id)}><AppIcon name="grip" /></button>
+      </article>)}
+      <p className="reorder-status" role="status">{reorderSaving ? 'Saving order…' : 'Order saves after each drop.'}</p>
+    </div> : matching.length === 0 ? <EmptyState title={showArchived ? 'No archived routines' : search ? 'No matching routines' : 'Add your first routine'} copy={showArchived ? 'Archived routines stay here until you restore or delete them.' : 'Create as many routines as you need. Nothing is capped.'} action={!showArchived && !search ? <button className="primary-button" onClick={() => setEditor('new')}><AppIcon name="plus" />Add routine</button> : null} /> :
       mode === 'today'
         ? <div className="today-routine-list">{matching.map((routine) => {
           const count = runningNumber(routine.id, selectedDate)

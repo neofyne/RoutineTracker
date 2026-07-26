@@ -50,7 +50,7 @@ The visual direction is **enterprise-grade personal productivity**: calm, precis
 
 - Month navigation and auto-generated Monday–Sunday weekly sheets.
 - Spreadsheet grid: task name, seven dated day columns, and a final **Total** column.
-- Create, rename, colour, archive, and delete routines. Manual reordering is intentionally omitted from V1.
+- Create, rename, colour, reorder, archive, and delete routines. Reordering uses a dedicated compact mode with touch drag handles, auto-scroll, keyboard arrows, and persistent saved order.
 - A tap toggles a daily completion. Completed cells use the routine colour and display its running number within that week.
 - Removing a completion recalculates all later running numbers in the week.
 - Weekly total per routine; month and lifetime completion totals in routine details/statistics.
@@ -201,7 +201,7 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 | Reloading Daily Tasks returns to Routines | The app initialises the active module to `routines`; the module and selected date are not stored in the URL or restored after reload. | Put the active module and selected date in lightweight URL state, with a saved last-view fallback. Reload, browser back/forward, and reopening the installed app restore the same module and date. |
 | Tasks disappear or reappear only after reload | Root cause is not yet proven. The current list has no loading state, request sequencing, or reconciliation after every mutation, so a slow/stale response can look like an empty list. | Begin with a Supabase row audit and a reproducible task lifecycle. Then add explicit loading/error states, stale-request cancellation, mutation reconciliation, and a visible saved/failed result. Never display a premature “empty day” while a request is unresolved. |
 | The visible **Tomorrow** button is confusing | The current action inserts a copy and keeps the original today, which conflicts with the requested workflow. | Remove the visible button. Long press opens an action menu with **Move to tomorrow**; the same action appears in the three-dot menu. It updates the existing task date, removes it from today, adds it tomorrow, and offers Undo. |
-| Move earlier/later is too slow | The settings sheet exposes two serial-order buttons; there is no true drag-and-drop interaction. | Remove both controls and the manual-order promise from V1. Existing stored order remains stable. |
+| Move earlier/later is too slow | The settings sheet exposed two serial-order buttons, which made multi-position changes tedious. | Keep both controls out of routine settings. A dedicated compact **Reorder** mode exposes drag handles on phone and desktop, auto-scrolls during long moves, supports keyboard arrows, and saves after every drop. |
 | Adding a routine can require a second tap and then create duplicates | Routine saving has no in-flight lock, so repeated taps can submit the same insert before the first response closes the sheet. | The first tap immediately enters a visible **Adding…** state and disables all repeat submission. Close the sheet only after one confirmed insert; on failure, keep it open with a retry message. |
 | “Today” is awkwardly placed below the Daily Tasks date | The page heading already says Today, while the date navigator repeats Today as a second centred line. | Remove the redundant line for the current date. Past/future dates use a small, separately tappable **Return to today** action. |
 | “Week of 20 Jul” is unnecessary | The seven date cells already communicate the cycle, and ordinal week labels become ambiguous across month boundaries. | Remove “Week of…”. Show the month/year and the seven-day calendar strip; Week view keeps the explicit date range. |
@@ -230,6 +230,8 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
    - Add a submission mutex and **Adding… / Saving…** button state.
    - Reconcile the returned row by ID so a success can be rendered only once.
    - Remove Move earlier and Move later from the sheet and delete the unused UI handler.
+   - Put ordering in a dedicated compact Reorder mode so the normal completion view stays focused.
+   - Allow handle-only touch dragging with edge auto-scroll and keyboard-arrow fallback; persist each completed move.
 
 5. **Clean up date hierarchy**
    - Remove the duplicate Today subtitle from Daily Tasks.
@@ -251,6 +253,7 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 - [x] The three-dot task menu exposes the same move action for users who do not discover or cannot use long press.
 - [x] One routine submission creates exactly one row; the Add button cannot be submitted twice while saving.
 - [x] Routine settings contain no Move earlier or Move later controls.
+- [x] A dedicated Reorder mode supports phone-width handle dragging, auto-scroll, keyboard arrows, and persistent saved order without interfering with routine completion.
 - [x] Daily Tasks does not repeat Today beneath the full date.
 - [x] The routine calendar contains no “Week of…” subtitle and remains understandable as a seven-day cycle.
 
@@ -270,7 +273,7 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 
 - [ ] Add schema, migrations, RLS policies, and seed/development helpers.
 - [ ] Build month/week navigation and deterministic weekly date generation.
-- [ ] Build routine CRUD, colours, archive, and search. (Manual reordering was removed from V1 by the 26 July 2026 decision.)
+- [ ] Build routine CRUD, colours, archive, search, and dedicated handle-based reordering.
 - [ ] Add started dates so new routines do not rewrite historical weeks.
 - [ ] Build desktop/mobile tracker grid, single-tap completion, undo, totals, and automatic renumbering.
 - [ ] Add optimistic updates and retry-safe error feedback.
@@ -303,6 +306,7 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 - Weekly totals always equal the number of completed cells in that row.
 - New weeks render without manual creation and past weeks never disappear.
 - Routine order, colours, archive state, and task order persist after reload/login on another device.
+- Routine reordering works from a dedicated phone-width mode, does not hijack normal page scrolling, and exposes keyboard-arrow controls as an accessible alternative.
 - Completing a daily task moves it into the day’s completed section without deleting it.
 - Move to tomorrow updates exactly one task row, removes it from the source date, shows it on the following date, and can be undone.
 - No user can read or write another user’s data.
@@ -331,3 +335,4 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 | 2026-07-25 | Prevented iPhone zoom when opening routine and task settings. | Settings sheets no longer auto-focus their title field; all mobile form controls use a Safari-safe 16px text size. |
 | 2026-07-26 | Planned Release 1.1 reliability and mobile-interaction correction from family phone testing. | Plan covers task persistence auditing, module/date reload restoration, long-press Move to tomorrow with menu alternative and Undo, single-submit routine creation, removal of routine reorder controls, and simplified date labels. Implementation pending. |
 | 2026-07-26 | Implemented Release 1.1 reliability and interaction corrections locally. | 20/20 reload test passed; real task move/Undo and duplicate-submit cleanup passed; production build and browser console checks passed. Physical iPhone long-press/scroll QA remains before closing the release. |
+| 2026-07-26 | Added a dedicated routine Reorder mode after family feedback restored ordering to V1. | Compact full-name rows use handle-only phone/desktop dragging, edge auto-scroll, keyboard-arrow fallback, and save the order after each completed move; Move earlier/later remains absent from routine settings. |

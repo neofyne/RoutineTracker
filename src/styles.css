@@ -70,12 +70,28 @@ button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: no
 .date-rail button.selected strong { background: var(--brand); color: #fff; }
 .return-today { display: block; margin: 7px auto 0; padding: 4px 10px; border: 0; background: transparent; color: var(--brand); font-size: .72rem; font-weight: 800; }
 
-.tracker-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin: 14px 0 10px; }
+.tracker-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; margin: 14px 0 10px; }
+.tracker-tools.reorder-active { grid-template-columns: minmax(0, 1fr) auto; margin-top: 24px; }
 .search-field { display: flex; align-items: center; gap: 8px; min-height: 45px; padding: 0 12px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--muted); }
 .search-field input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: .82rem; }
 .tracker-tools > button { display: grid; place-items: center; gap: 2px; min-width: 58px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--muted); font-size: .61rem; font-weight: 800; }
 .tracker-tools > button.active { color: var(--brand); border-color: var(--brand); background: var(--brand-soft); }
 .tracker-tools > button .icon { width: 17px; height: 17px; }
+.reorder-guidance { display: grid; align-content: center; min-height: 45px; }
+.reorder-guidance strong { font-size: .8rem; }
+.reorder-guidance span { margin-top: 2px; color: var(--muted); font-size: .68rem; }
+
+.reorder-list { display: grid; gap: 8px; padding-bottom: 16px; }
+.reorder-row { --routine-color: #117865; display: grid; grid-template-columns: 10px minmax(0, 1fr) 48px; align-items: center; gap: 11px; min-height: 66px; padding: 8px 8px 8px 14px; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); transition: transform .16s ease, opacity .16s ease, border-color .16s ease; }
+.reorder-row > i { width: 10px; height: 10px; border-radius: 50%; background: var(--routine-color); }
+.reorder-row > div { display: grid; min-width: 0; gap: 3px; }
+.reorder-row strong { overflow-wrap: anywhere; font-size: .9rem; }
+.reorder-row span { color: var(--muted); font-size: .66rem; }
+.reorder-row.dragging { z-index: 2; border-color: var(--brand); opacity: .78; transform: scale(.985); box-shadow: 0 14px 34px rgba(17, 120, 101, .17); }
+.reorder-handle { display: grid; place-items: center; width: 44px; height: 48px; padding: 0; border: 1px solid var(--line); border-radius: 13px; background: var(--brand-soft); color: var(--brand); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.reorder-handle:active { cursor: grabbing; }
+.reorder-handle .icon { width: 22px; height: 22px; }
+.reorder-status { margin: 3px 0 0; color: var(--muted); font-size: .68rem; text-align: center; }
 
 .today-routine-list, .week-board { display: grid; gap: 9px; }
 .today-routine-card { --routine-color: #117865; display: grid; grid-template-columns: 48px minmax(0, 1fr) 42px 36px; align-items: center; gap: 10px; min-height: 88px; padding: 11px 10px 11px 13px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); }
