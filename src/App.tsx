@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 
@@ -7,7 +7,7 @@ type Theme = 'light' | 'dark'
 type RoutineMode = 'today' | 'week'
 type Routine = { id: string; name: string; color: string; sort_order: number; started_on: string; archived_at: string | null }
 type Completion = { id: string; routine_id: string; completed_on: string }
-type Task = { id: string; title: string; notes: string | null; completed_at: string | null; due_time: string | null; priority: 'none' | 'low' | 'medium' | 'high'; sort_order: number }
+type Task = { id: string; task_date: string; title: string; notes: string | null; completed_at: string | null; due_time: string | null; priority: 'none' | 'low' | 'medium' | 'high'; sort_order: number }
 type UndoAction = { label: string; run: () => Promise<void> | void }
 
 const today = new Date()
@@ -16,6 +16,23 @@ const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() 
 const dateFromKey = (key: string) => new Date(`${key}T12:00:00`)
 const shortDate = (date: Date) => date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 const fullDate = (date: Date) => date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+const taskFields = 'id,task_date,title,notes,completed_at,due_time,priority,sort_order'
+const dailyTaskCache = new Map<string, Task[]>()
+const validViews: View[] = ['routines', 'tasks', 'account']
+const isView = (value: string | null): value is View => Boolean(value && validViews.includes(value as View))
+const isDateKey = (value: string | null): value is string => Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(dateFromKey(value).getTime()))
+const initialView = (): View => {
+  if (typeof window === 'undefined') return 'routines'
+  const queryView = new URL(window.location.href).searchParams.get('view')
+  const savedView = window.localStorage.getItem('dayplan-view')
+  return isView(queryView) ? queryView : isView(savedView) ? savedView : 'routines'
+}
+const initialTaskDate = () => {
+  if (typeof window === 'undefined') return dateKey(today)
+  const queryDate = new URL(window.location.href).searchParams.get('date')
+  const savedDate = window.localStorage.getItem('dayplan-task-date')
+  return isDateKey(queryDate) ? queryDate : isDateKey(savedDate) ? savedDate : dateKey(today)
+}
 
 function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 'arrow' | 'user' | 'more' | 'close' | 'calendar' | 'list' | 'archive' | 'trash' }) {
   const paths = {
@@ -38,7 +55,8 @@ function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null)
-  const [view, setView] = useState<View>('routines')
+  const [view, setView] = useState<View>(initialView)
+  const [taskDate, setTaskDate] = useState(initialTaskDate)
   const [theme, setTheme] = useState<Theme>('light')
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
@@ -58,6 +76,48 @@ export function App() {
     document.documentElement.dataset.theme = theme
     window.localStorage.setItem('routine-theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('view', view)
+    url.searchParams.set('date', taskDate)
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+    window.localStorage.setItem('dayplan-view', view)
+    window.localStorage.setItem('dayplan-task-date', taskDate)
+  }, [])
+
+  useEffect(() => {
+    const restoreNavigation = () => {
+      const url = new URL(window.location.href)
+      const nextView = url.searchParams.get('view')
+      const nextDate = url.searchParams.get('date')
+      if (isView(nextView)) setView(nextView)
+      if (isDateKey(nextDate)) setTaskDate(nextDate)
+    }
+    window.addEventListener('popstate', restoreNavigation)
+    return () => window.removeEventListener('popstate', restoreNavigation)
+  }, [])
+
+  function writeNavigation(nextView: View, nextDate: string, replace = false) {
+    const url = new URL(window.location.href)
+    url.searchParams.set('view', nextView)
+    url.searchParams.set('date', nextDate)
+    window.history[replace ? 'replaceState' : 'pushState'](null, '', `${url.pathname}${url.search}${url.hash}`)
+    window.localStorage.setItem('dayplan-view', nextView)
+    window.localStorage.setItem('dayplan-task-date', nextDate)
+  }
+
+  function selectView(nextView: View) {
+    if (nextView === view) return
+    setView(nextView)
+    writeNavigation(nextView, taskDate)
+  }
+
+  function selectTaskDate(nextDate: string) {
+    if (nextDate === taskDate) return
+    setTaskDate(nextDate)
+    writeNavigation('tasks', nextDate)
+  }
 
   async function authenticate(event: FormEvent) {
     event.preventDefault()
@@ -84,12 +144,12 @@ export function App() {
       <button className="icon-button" aria-label="Toggle colour theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}><AppIcon name={theme === 'light' ? 'moon' : 'sun'} /></button>
     </header>
     <section className="page-content">
-      {view === 'routines' ? <RoutineTracker userId={session.user.id} /> : view === 'tasks' ? <DailyTasks userId={session.user.id} /> : <AccountScreen email={session.user.email ?? ''} onSignOut={signOut} />}
+      {view === 'routines' ? <RoutineTracker userId={session.user.id} /> : view === 'tasks' ? <DailyTasks key={`${session.user.id}:${taskDate}`} userId={session.user.id} selectedDate={taskDate} onDateChange={selectTaskDate} /> : <AccountScreen email={session.user.email ?? ''} onSignOut={signOut} />}
     </section>
     <nav className="bottom-nav" aria-label="Primary navigation">
-      <button className={view === 'routines' ? 'active' : ''} onClick={() => setView('routines')}><AppIcon name="grid" /><span>Routines</span></button>
-      <button className={view === 'tasks' ? 'active' : ''} onClick={() => setView('tasks')}><AppIcon name="check" /><span>Daily Tasks</span></button>
-      <button className={view === 'account' ? 'active' : ''} onClick={() => setView('account')}><AppIcon name="user" /><span>Account</span></button>
+      <button className={view === 'routines' ? 'active' : ''} onClick={() => selectView('routines')}><AppIcon name="grid" /><span>Routines</span></button>
+      <button className={view === 'tasks' ? 'active' : ''} onClick={() => selectView('tasks')}><AppIcon name="check" /><span>Daily Tasks</span></button>
+      <button className={view === 'account' ? 'active' : ''} onClick={() => selectView('account')}><AppIcon name="user" /><span>Account</span></button>
     </nav>
   </main>
 }
@@ -206,31 +266,26 @@ function RoutineTracker({ userId }: { userId: string }) {
   }
 
   async function saveRoutine(name: string, color: string) {
-    if (!supabase) return
+    if (!supabase) return false
     if (editor === 'new') {
       const nextOrder = Math.max(-1, ...routines.map((routine) => routine.sort_order)) + 1
       const { data, error } = await supabase.from('routines').insert({ user_id: userId, name, color, sort_order: nextOrder, started_on: dateKey(today) }).select('id,name,color,sort_order,started_on,archived_at').single()
-      if (error) return setMessage(error.message)
-      if (data) setRoutines((current) => [...current, data as Routine])
+      if (error) {
+        setMessage(error.message)
+        return false
+      }
+      if (data) setRoutines((current) => current.some((routine) => routine.id === data.id) ? current : [...current, data as Routine])
     } else if (editor) {
       const { error } = await supabase.from('routines').update({ name, color }).eq('id', editor.id)
-      if (error) return setMessage(error.message)
+      if (error) {
+        setMessage(error.message)
+        return false
+      }
       setRoutines((current) => current.map((routine) => routine.id === editor.id ? { ...routine, name, color } : routine))
     }
+    setMessage('')
     setEditor(null)
-  }
-
-  async function moveRoutine(routine: Routine, direction: -1 | 1) {
-    if (!supabase) return
-    const ordered = routines.filter((item) => !item.archived_at).sort((a, b) => a.sort_order - b.sort_order)
-    const index = ordered.findIndex((item) => item.id === routine.id)
-    const target = ordered[index + direction]
-    if (!target) return
-    await Promise.all([
-      supabase.from('routines').update({ sort_order: target.sort_order }).eq('id', routine.id),
-      supabase.from('routines').update({ sort_order: routine.sort_order }).eq('id', target.id),
-    ])
-    setRoutines((current) => current.map((item) => item.id === routine.id ? { ...item, sort_order: target.sort_order } : item.id === target.id ? { ...item, sort_order: routine.sort_order } : item).sort((a, b) => a.sort_order - b.sort_order))
+    return true
   }
 
   async function toggleArchive(routine: Routine) {
@@ -300,14 +355,14 @@ function RoutineTracker({ userId }: { userId: string }) {
 
     {message && <p className="inline-error" role="status">{message}</p>}
     {undo && <UndoToast action={undo} onClose={() => setUndo(null)} />}
-    {editor && <RoutineEditor key={editor === 'new' ? 'new' : editor.id} routine={editor === 'new' ? null : editor} onClose={() => setEditor(null)} onSave={saveRoutine} onMove={moveRoutine} onArchive={toggleArchive} onDelete={deleteRoutine} />}
+    {editor && <RoutineEditor key={editor === 'new' ? 'new' : editor.id} routine={editor === 'new' ? null : editor} onClose={() => setEditor(null)} onSave={saveRoutine} onArchive={toggleArchive} onDelete={deleteRoutine} />}
   </>
 }
 
 function WeekNavigator({ week, selectedDate, onSelect, onPrevious, onNext, onToday }: { week: Date[]; selectedDate: string; onSelect: (date: string) => void; onPrevious: () => void; onNext: () => void; onToday: () => void }) {
   const containsToday = week.some((day) => dateKey(day) === dateKey(today))
   return <section className="week-navigator">
-    <header><button aria-label="Previous week" onClick={onPrevious}><AppIcon name="arrow" /></button><div><strong>{week[0].toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</strong><span>Week of {shortDate(week[0])}</span></div><button className="next" aria-label="Next week" onClick={onNext}><AppIcon name="arrow" /></button></header>
+    <header><button aria-label="Previous week" onClick={onPrevious}><AppIcon name="arrow" /></button><div><strong>{week[0].toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</strong></div><button className="next" aria-label="Next week" onClick={onNext}><AppIcon name="arrow" /></button></header>
     <div className="date-rail">{week.map((day) => {
       const key = dateKey(day)
       return <button key={key} className={`${key === selectedDate ? 'selected' : ''} ${key === dateKey(today) ? 'today' : ''}`} onClick={() => onSelect(key)}><span>{day.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1)}</span><strong>{day.getDate()}</strong></button>
@@ -316,20 +371,33 @@ function WeekNavigator({ week, selectedDate, onSelect, onPrevious, onNext, onTod
   </section>
 }
 
-function RoutineEditor({ routine, onClose, onSave, onMove, onArchive, onDelete }: { routine: Routine | null; onClose: () => void; onSave: (name: string, color: string) => Promise<void>; onMove: (routine: Routine, direction: -1 | 1) => Promise<void>; onArchive: (routine: Routine) => Promise<void>; onDelete: (routine: Routine) => Promise<void> }) {
+function RoutineEditor({ routine, onClose, onSave, onArchive, onDelete }: { routine: Routine | null; onClose: () => void; onSave: (name: string, color: string) => Promise<boolean>; onArchive: (routine: Routine) => Promise<void>; onDelete: (routine: Routine) => Promise<void> }) {
   const [name, setName] = useState(routine?.name ?? '')
   const [color, setColor] = useState(routine?.color ?? routinePalette[0])
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    const clean = name.trim()
+    if (!clean || savingRef.current) return
+    savingRef.current = true
+    setSaving(true)
+    const saved = await onSave(clean, color)
+    if (!saved) {
+      savingRef.current = false
+      setSaving(false)
+    }
+  }
   return <div className="sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-    <section className="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="routine-editor-title">
+    <section className="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="routine-editor-title" aria-busy={saving}>
       <div className="sheet-handle" />
-      <header><div><p className="eyebrow">{routine ? 'MANAGE ROUTINE' : 'NEW ROUTINE'}</p><h2 id="routine-editor-title">{routine ? 'Routine settings' : 'Add to your plan'}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><AppIcon name="close" /></button></header>
-      <form onSubmit={(event) => { event.preventDefault(); const clean = name.trim(); if (clean) void onSave(clean, color) }}>
-        <label>Routine name<input maxLength={100} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Morning walk" /></label>
-        <fieldset><legend>Routine colour</legend><div className="color-palette">{routinePalette.map((value) => <button type="button" key={value} className={value === color ? 'selected' : ''} style={{ backgroundColor: value }} onClick={() => setColor(value)} aria-label={`Choose ${value}`} />)}</div></fieldset>
-        <button className="primary-button sheet-save" type="submit">{routine ? 'Save changes' : 'Add routine'}</button>
+      <header><div><p className="eyebrow">{routine ? 'MANAGE ROUTINE' : 'NEW ROUTINE'}</p><h2 id="routine-editor-title">{routine ? 'Routine settings' : 'Add to your plan'}</h2></div><button className="icon-button" disabled={saving} onClick={onClose} aria-label="Close"><AppIcon name="close" /></button></header>
+      <form onSubmit={submit}>
+        <label>Routine name<input disabled={saving} maxLength={100} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Morning walk" /></label>
+        <fieldset disabled={saving}><legend>Routine colour</legend><div className="color-palette">{routinePalette.map((value) => <button type="button" key={value} className={value === color ? 'selected' : ''} style={{ backgroundColor: value }} onClick={() => setColor(value)} aria-label={`Choose ${value}`} />)}</div></fieldset>
+        <button className="primary-button sheet-save" disabled={saving} type="submit">{saving ? (routine ? 'Saving…' : 'Adding…') : routine ? 'Save changes' : 'Add routine'}</button>
       </form>
       {routine && <div className="sheet-actions">
-        <div className="order-actions"><button onClick={() => onMove(routine, -1)}>Move earlier</button><button onClick={() => onMove(routine, 1)}>Move later</button></div>
         <button onClick={() => onArchive(routine)}><AppIcon name="archive" />{routine.archived_at ? 'Restore routine' : 'Archive routine'}</button>
         <button className="danger" onClick={() => onDelete(routine)}><AppIcon name="trash" />Delete permanently</button>
       </div>}
@@ -337,34 +405,78 @@ function RoutineEditor({ routine, onClose, onSave, onMove, onArchive, onDelete }
   </div>
 }
 
-function DailyTasks({ userId }: { userId: string }) {
-  const [tasks, setTasks] = useState<Task[]>([])
+function DailyTasks({ userId, selectedDate, onDateChange }: { userId: string; selectedDate: string; onDateChange: (date: string) => void }) {
+  const cacheKey = `${userId}:${selectedDate}`
+  const [tasks, setTasks] = useState<Task[]>(() => dailyTaskCache.get(cacheKey) ?? [])
   const [title, setTitle] = useState('')
   const [dueTime, setDueTime] = useState('')
   const [priority, setPriority] = useState<Task['priority']>('none')
-  const [selectedDate, setSelectedDate] = useState(dateKey(today))
   const [search, setSearch] = useState('')
   const [message, setMessage] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [reloadVersion, setReloadVersion] = useState(0)
+  const [adding, setAdding] = useState(false)
+  const [movingTaskId, setMovingTaskId] = useState<string | null>(null)
   const [undo, setUndo] = useState<UndoAction | null>(null)
   const [editor, setEditor] = useState<Task | null>(null)
+  const requestRef = useRef(0)
+  const addingRef = useRef(false)
+  const movingRef = useRef<string | null>(null)
   const date = dateFromKey(selectedDate)
 
-  useEffect(() => {
-    supabase?.from('daily_tasks').select('id,title,notes,completed_at,due_time,priority,sort_order').eq('user_id', userId).eq('task_date', selectedDate).is('archived_at', null).order('sort_order').then(({ data, error }) => {
-      if (error) setMessage(error.message)
-      else setTasks((data ?? []) as Task[])
+  function commitTasks(update: (current: Task[]) => Task[]) {
+    setTasks((current) => {
+      const next = update(current)
+      dailyTaskCache.set(cacheKey, next)
+      return next
     })
-  }, [selectedDate, userId])
+  }
+
+  useEffect(() => {
+    if (!supabase) return
+    const client = supabase
+    const requestId = ++requestRef.current
+    const cached = dailyTaskCache.get(cacheKey)
+    if (cached) setTasks(cached)
+    setLoading(true)
+    setLoadError('')
+    void client.from('daily_tasks').select(taskFields).eq('user_id', userId).eq('task_date', selectedDate).is('archived_at', null).order('sort_order').then(({ data, error }) => {
+      if (requestRef.current !== requestId) return
+      if (error) {
+        setLoadError(error.message)
+      } else {
+        const confirmed = (data ?? []) as Task[]
+        dailyTaskCache.set(cacheKey, confirmed)
+        setTasks(confirmed)
+      }
+      setLoading(false)
+    })
+    return () => {
+      if (requestRef.current === requestId) requestRef.current += 1
+    }
+  }, [cacheKey, reloadVersion, selectedDate, userId])
 
   async function addTask(event: FormEvent) {
     event.preventDefault()
     const clean = title.trim()
-    if (!clean || !supabase) return
+    if (!clean || !supabase || addingRef.current) return
     if (tasks.some((task) => !task.completed_at && task.title.toLowerCase() === clean.toLowerCase()) && !window.confirm('A matching pending task already exists. Add another?')) return
-    const { data, error } = await supabase.from('daily_tasks').insert({ user_id: userId, task_date: selectedDate, title: clean, due_time: dueTime || null, priority, sort_order: tasks.length }).select('id,title,notes,completed_at,due_time,priority,sort_order').single()
-    if (error) return setMessage(error.message)
-    if (data) setTasks((current) => [...current, data as Task])
-    setTitle(''); setDueTime(''); setPriority('none')
+    addingRef.current = true
+    setAdding(true)
+    const nextOrder = Math.max(-1, ...tasks.map((task) => Number(task.sort_order))) + 1
+    const { data, error } = await supabase.from('daily_tasks').insert({ user_id: userId, task_date: selectedDate, title: clean, due_time: dueTime || null, priority, sort_order: nextOrder }).select(taskFields).single()
+    if (error) {
+      setMessage(error.message)
+    } else if (data) {
+      commitTasks((current) => current.some((task) => task.id === data.id) ? current : [...current, data as Task])
+      setTitle('')
+      setDueTime('')
+      setPriority('none')
+      setMessage('')
+    }
+    addingRef.current = false
+    setAdding(false)
   }
 
   async function toggleTask(task: Task) {
@@ -373,25 +485,56 @@ function DailyTasks({ userId }: { userId: string }) {
     const completed_at = task.completed_at ? null : new Date().toISOString()
     const { error } = await client.from('daily_tasks').update({ completed_at }).eq('id', task.id)
     if (error) return setMessage(error.message)
-    setTasks((current) => current.map((item) => item.id === task.id ? { ...item, completed_at } : item))
+    commitTasks((current) => current.map((item) => item.id === task.id ? { ...item, completed_at } : item))
     setUndo({ label: completed_at ? `${task.title} completed` : `${task.title} reopened`, run: async () => {
       await client.from('daily_tasks').update({ completed_at: task.completed_at }).eq('id', task.id)
-      setTasks((current) => current.map((item) => item.id === task.id ? task : item))
+      commitTasks((current) => current.map((item) => item.id === task.id ? task : item))
     } })
   }
 
-  async function carryForward(task: Task) {
-    if (!supabase) return
-    const tomorrow = new Date(date); tomorrow.setDate(tomorrow.getDate() + 1)
-    const { error } = await supabase.from('daily_tasks').insert({ user_id: userId, task_date: dateKey(tomorrow), title: task.title, notes: task.notes, due_time: task.due_time, priority: task.priority, sort_order: 0, carried_from_id: task.id })
-    setMessage(error ? error.message : `Copied to ${fullDate(tomorrow)}.`)
+  async function moveToTomorrow(task: Task) {
+    if (!supabase || task.completed_at || movingRef.current) return
+    const client = supabase
+    movingRef.current = task.id
+    setMovingTaskId(task.id)
+    const tomorrow = new Date(date)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tomorrowKey = dateKey(tomorrow)
+    const { data: finalTask, error } = await client.from('daily_tasks').update({ task_date: tomorrowKey, completed_at: null }).eq('id', task.id).select(taskFields).single()
+    if (error || !finalTask) {
+      setMessage(error?.message ?? 'Could not move this task. Please try again.')
+      movingRef.current = null
+      setMovingTaskId(null)
+      return
+    }
+    const moved = finalTask as Task
+    commitTasks((current) => current.filter((item) => item.id !== task.id))
+    const tomorrowCacheKey = `${userId}:${tomorrowKey}`
+    const tomorrowTasks = dailyTaskCache.get(tomorrowCacheKey)
+    if (tomorrowTasks) dailyTaskCache.set(tomorrowCacheKey, [...tomorrowTasks.filter((item) => item.id !== moved.id), moved])
+    setMessage('')
+    setEditor(null)
+    setUndo({
+      label: `${task.title} moved to tomorrow`,
+      run: async () => {
+        const { data: restored, error: restoreError } = await client.from('daily_tasks').update({ task_date: selectedDate, completed_at: task.completed_at, sort_order: task.sort_order }).eq('id', task.id).select(taskFields).single()
+        if (restoreError || !restored) {
+          setMessage(restoreError?.message ?? 'Could not undo the move.')
+          return
+        }
+        dailyTaskCache.set(tomorrowCacheKey, (dailyTaskCache.get(tomorrowCacheKey) ?? []).filter((item) => item.id !== task.id))
+        commitTasks((current) => current.some((item) => item.id === task.id) ? current : [...current, restored as Task])
+      },
+    })
+    movingRef.current = null
+    setMovingTaskId(null)
   }
 
   async function saveTask(task: Task, values: Pick<Task, 'title' | 'notes' | 'due_time' | 'priority'>) {
     if (!supabase) return
     const { error } = await supabase.from('daily_tasks').update(values).eq('id', task.id)
     if (error) return setMessage(error.message)
-    setTasks((current) => current.map((item) => item.id === task.id ? { ...item, ...values } : item))
+    commitTasks((current) => current.map((item) => item.id === task.id ? { ...item, ...values } : item))
     setEditor(null)
   }
 
@@ -399,7 +542,7 @@ function DailyTasks({ userId }: { userId: string }) {
     if (!supabase || !window.confirm(`Archive “${task.title}”?`)) return
     const { error } = await supabase.from('daily_tasks').update({ archived_at: new Date().toISOString() }).eq('id', task.id)
     if (error) return setMessage(error.message)
-    setTasks((current) => current.filter((item) => item.id !== task.id))
+    commitTasks((current) => current.filter((item) => item.id !== task.id))
     setEditor(null)
   }
 
@@ -409,53 +552,88 @@ function DailyTasks({ userId }: { userId: string }) {
   const done = tasks.filter((task) => task.completed_at).length
 
   return <>
-    <section className="screen-heading"><div><p className="eyebrow">DAILY TASKS</p><h1>{selectedDate === dateKey(today) ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'long' })}</h1><p>{done} of {tasks.length} complete · {shortDate(date)}</p></div></section>
-    <TaskDateNavigator date={date} onPrevious={() => { const next = new Date(date); next.setDate(next.getDate() - 1); setSelectedDate(dateKey(next)) }} onNext={() => { const next = new Date(date); next.setDate(next.getDate() + 1); setSelectedDate(dateKey(next)) }} onToday={() => setSelectedDate(dateKey(today))} />
+    <section className="screen-heading"><div><p className="eyebrow">DAILY TASKS</p><h1>{selectedDate === dateKey(today) ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'long' })}</h1><p>{loading && tasks.length === 0 ? `Loading tasks · ${shortDate(date)}` : `${done} of ${tasks.length} complete · ${shortDate(date)}`}</p></div></section>
+    <TaskDateNavigator date={date} onPrevious={() => { const next = new Date(date); next.setDate(next.getDate() - 1); onDateChange(dateKey(next)) }} onNext={() => { const next = new Date(date); next.setDate(next.getDate() + 1); onDateChange(dateKey(next)) }} onToday={() => onDateChange(dateKey(today))} />
     <section className="task-composer">
-      <form onSubmit={addTask}><input aria-label="New daily task" placeholder="What needs to get done?" value={title} onChange={(event) => setTitle(event.target.value)} /><button className="primary-button" type="submit"><AppIcon name="plus" />Add</button></form>
-      <div><select aria-label="Priority" value={priority} onChange={(event) => setPriority(event.target.value as Task['priority'])}><option value="none">No priority</option><option value="high">High priority</option><option value="medium">Medium priority</option><option value="low">Low priority</option></select><input aria-label="Due time" type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} /></div>
+      <form onSubmit={addTask}><input disabled={adding} aria-label="New daily task" placeholder="What needs to get done?" value={title} onChange={(event) => setTitle(event.target.value)} /><button className="primary-button" disabled={adding} type="submit"><AppIcon name="plus" />{adding ? 'Adding…' : 'Add'}</button></form>
+      <div><select disabled={adding} aria-label="Priority" value={priority} onChange={(event) => setPriority(event.target.value as Task['priority'])}><option value="none">No priority</option><option value="high">High priority</option><option value="medium">Medium priority</option><option value="low">Low priority</option></select><input disabled={adding} aria-label="Due time" type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} /></div>
     </section>
     <label className="search-field task-search"><span aria-hidden>⌕</span><input aria-label="Search tasks" placeholder="Search this day" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
-    {tasks.length === 0 ? <EmptyState title="A clear day ahead" copy="Add a one-time task above. Routines stay in their own tab." action={null} /> : <section className="task-board">
-      <TaskSection title="Pending" tasks={pending} onToggle={toggleTask} onCarry={carryForward} onEdit={setEditor} />
-      {completed.length > 0 && <TaskSection title="Completed" tasks={completed} onToggle={toggleTask} onCarry={carryForward} onEdit={setEditor} />}
+    {loading && tasks.length === 0 ? <TaskLoadingState /> : loadError && tasks.length === 0 ? <LoadFailure message={loadError} onRetry={() => setReloadVersion((value) => value + 1)} /> : tasks.length === 0 ? <EmptyState title="A clear day ahead" copy="Add a one-time task above. Routines stay in their own tab." action={null} /> : <section className="task-board">
+      <TaskSection title="Pending" tasks={pending} onToggle={toggleTask} onEdit={setEditor} />
+      {completed.length > 0 && <TaskSection title="Completed" tasks={completed} onToggle={toggleTask} onEdit={setEditor} />}
     </section>}
+    {loading && tasks.length > 0 && <p className="sync-note" role="status">Refreshing tasks…</p>}
+    {loadError && tasks.length > 0 && <p className="inline-error" role="alert">{loadError} <button onClick={() => setReloadVersion((value) => value + 1)}>Retry</button></p>}
     {message && <p className="inline-error" role="status">{message}</p>}
     {undo && <UndoToast action={undo} onClose={() => setUndo(null)} />}
-    {editor && <TaskEditor key={editor.id} task={editor} onClose={() => setEditor(null)} onSave={saveTask} onArchive={archiveTask} />}
+    {editor && <TaskEditor key={editor.id} task={editor} moving={movingTaskId === editor.id} onClose={() => setEditor(null)} onSave={saveTask} onMoveToTomorrow={moveToTomorrow} onArchive={archiveTask} />}
   </>
 }
 
 function TaskDateNavigator({ date, onPrevious, onNext, onToday }: { date: Date; onPrevious: () => void; onNext: () => void; onToday: () => void }) {
-  return <div className="task-date-nav"><button aria-label="Previous day" onClick={onPrevious}><AppIcon name="arrow" /></button><button className="date-copy" onClick={onToday}><strong>{fullDate(date)}</strong><span>{dateKey(date) === dateKey(today) ? 'Today' : 'Tap to return to today'}</span></button><button className="next" aria-label="Next day" onClick={onNext}><AppIcon name="arrow" /></button></div>
+  const current = dateKey(date) === dateKey(today)
+  return <div className="task-date-nav"><button aria-label="Previous day" onClick={onPrevious}><AppIcon name="arrow" /></button><button className={`date-copy ${current ? 'current' : ''}`} onClick={onToday}><strong>{fullDate(date)}</strong>{!current && <span>Return to today</span>}</button><button className="next" aria-label="Next day" onClick={onNext}><AppIcon name="arrow" /></button></div>
 }
 
-function TaskSection({ title, tasks, onToggle, onCarry, onEdit }: { title: string; tasks: Task[]; onToggle: (task: Task) => void; onCarry: (task: Task) => void; onEdit: (task: Task) => void }) {
-  return <div className="task-section"><header><strong>{title}</strong><span>{tasks.length}</span></header>{tasks.map((task) => <article className={`task-card ${task.completed_at ? 'complete' : ''}`} key={task.id}>
+function TaskSection({ title, tasks, onToggle, onEdit }: { title: string; tasks: Task[]; onToggle: (task: Task) => void; onEdit: (task: Task) => void }) {
+  return <div className="task-section"><header><strong>{title}</strong><span>{tasks.length}</span></header>{tasks.map((task) => <TaskCard key={task.id} task={task} onToggle={onToggle} onEdit={onEdit} />)}</div>
+}
+
+function TaskCard({ task, onToggle, onEdit }: { task: Task; onToggle: (task: Task) => void; onEdit: (task: Task) => void }) {
+  const timerRef = useRef<number | null>(null)
+  const startRef = useRef({ x: 0, y: 0 })
+  function cancelLongPress() {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    timerRef.current = null
+  }
+  function startLongPress(event: React.PointerEvent<HTMLElement>) {
+    if (event.pointerType === 'mouse' || event.button !== 0 || (event.target as HTMLElement).closest('button')) return
+    startRef.current = { x: event.clientX, y: event.clientY }
+    cancelLongPress()
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null
+      onEdit(task)
+    }, 500)
+  }
+  function trackLongPress(event: React.PointerEvent<HTMLElement>) {
+    if (Math.hypot(event.clientX - startRef.current.x, event.clientY - startRef.current.y) > 10) cancelLongPress()
+  }
+  return <article className={`task-card ${task.completed_at ? 'complete' : ''}`} onPointerDown={startLongPress} onPointerMove={trackLongPress} onPointerUp={cancelLongPress} onPointerCancel={cancelLongPress} onPointerLeave={cancelLongPress} onContextMenu={(event) => event.preventDefault()} aria-label={`${task.title}. Long press or use the menu for actions.`}>
     <button className="task-check" onClick={() => onToggle(task)} aria-label={`${task.completed_at ? 'Reopen' : 'Complete'} ${task.title}`}><AppIcon name="check" /></button>
     <div><strong>{task.title}</strong>{(task.due_time || task.priority !== 'none' || task.notes) && <span>{task.due_time ? new Date(`2000-01-01T${task.due_time}`).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''}{task.due_time && task.priority !== 'none' ? ' · ' : ''}{task.priority !== 'none' ? `${task.priority} priority` : ''}{task.notes ? `${task.due_time || task.priority !== 'none' ? ' · ' : ''}note` : ''}</span>}</div>
-    {!task.completed_at && <button className="tomorrow-button" onClick={() => onCarry(task)}>Tomorrow</button>}
     <button className="more-button" onClick={() => onEdit(task)} aria-label={`Manage ${task.title}`}><AppIcon name="more" /></button>
-  </article>)}</div>
+  </article>
 }
 
-function TaskEditor({ task, onClose, onSave, onArchive }: { task: Task; onClose: () => void; onSave: (task: Task, values: Pick<Task, 'title' | 'notes' | 'due_time' | 'priority'>) => Promise<void>; onArchive: (task: Task) => Promise<void> }) {
+function TaskEditor({ task, moving, onClose, onSave, onMoveToTomorrow, onArchive }: { task: Task; moving: boolean; onClose: () => void; onSave: (task: Task, values: Pick<Task, 'title' | 'notes' | 'due_time' | 'priority'>) => Promise<void>; onMoveToTomorrow: (task: Task) => Promise<void>; onArchive: (task: Task) => Promise<void> }) {
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes ?? '')
   const [dueTime, setDueTime] = useState(task.due_time?.slice(0, 5) ?? '')
   const [priority, setPriority] = useState(task.priority)
   return <div className="sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-    <section className="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="task-editor-title">
-      <div className="sheet-handle" /><header><div><p className="eyebrow">TASK DETAILS</p><h2 id="task-editor-title">Edit task</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><AppIcon name="close" /></button></header>
+    <section className="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" aria-busy={moving}>
+      <div className="sheet-handle" /><header><div><p className="eyebrow">TASK ACTIONS</p><h2 id="task-editor-title">Task settings</h2></div><button className="icon-button" disabled={moving} onClick={onClose} aria-label="Close"><AppIcon name="close" /></button></header>
       <form onSubmit={(event) => { event.preventDefault(); const clean = title.trim(); if (clean) void onSave(task, { title: clean, notes: notes.trim() || null, due_time: dueTime || null, priority }) }}>
-        <label>Task name<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
-        <label>Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional note" /></label>
-        <div className="field-pair"><label>Priority<select value={priority} onChange={(event) => setPriority(event.target.value as Task['priority'])}><option value="none">None</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label><label>Due time<input type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} /></label></div>
-        <button className="primary-button sheet-save" type="submit">Save changes</button>
+        <label>Task name<input disabled={moving} value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+        <label>Notes<textarea disabled={moving} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional note" /></label>
+        <div className="field-pair"><label>Priority<select disabled={moving} value={priority} onChange={(event) => setPriority(event.target.value as Task['priority'])}><option value="none">None</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label><label>Due time<input disabled={moving} type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} /></label></div>
+        <button className="primary-button sheet-save" disabled={moving} type="submit">Save changes</button>
       </form>
-      <div className="sheet-actions"><button onClick={() => onArchive(task)}><AppIcon name="archive" />Archive task</button></div>
+      <div className="sheet-actions">
+        {!task.completed_at && <button className="move-tomorrow" disabled={moving} onClick={() => onMoveToTomorrow(task)}><AppIcon name="arrow" />{moving ? 'Moving…' : 'Move to tomorrow'}</button>}
+        <button disabled={moving} onClick={() => onArchive(task)}><AppIcon name="archive" />Archive task</button>
+      </div>
     </section>
   </div>
+}
+
+function TaskLoadingState() {
+  return <section className="task-loading" role="status" aria-label="Loading tasks"><i /><i /><i /></section>
+}
+
+function LoadFailure({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return <section className="empty-state load-failure"><div className="empty-icon">!</div><h2>Tasks could not load</h2><p>{message}</p><button className="primary-button" onClick={onRetry}>Retry</button></section>
 }
 
 function AccountScreen({ email, onSignOut }: { email: string; onSignOut: () => void }) {

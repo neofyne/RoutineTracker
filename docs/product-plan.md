@@ -191,7 +191,7 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 
 ### Immediate release 1.1 — Data reliability and mobile interaction correction
 
-**Status:** Planned on 26 July 2026; no implementation started.
+**Status:** Implemented locally on 26 July 2026; production deployment pending.
 **Goal:** remove the behaviours that make DayPlan feel unreliable before adding any further feature scope.
 
 #### Confirmed findings and product decisions
@@ -243,16 +243,18 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 
 #### Release 1.1 acceptance checks
 
-- Reloading while Daily Tasks is active returns to Daily Tasks on the same selected date.
-- Adding a task and reloading 20 times never hides or duplicates the confirmed Supabase row.
-- Loading is visually distinct from a genuinely empty day; a failed fetch never masquerades as “0 tasks.”
-- A long press opens the task action menu without firing during normal vertical scrolling.
-- **Move to tomorrow** removes exactly one task from today, creates no duplicate row, shows it tomorrow, and can be undone.
-- The three-dot task menu exposes the same move action for users who do not discover or cannot use long press.
-- One routine submission creates exactly one row; the Add button cannot be submitted twice while saving.
-- Routine settings contain no Move earlier or Move later controls.
-- Daily Tasks does not repeat Today beneath the full date.
-- The routine calendar contains no “Week of…” subtitle and remains understandable as a seven-day cycle.
+- [x] Reloading while Daily Tasks is active returns to Daily Tasks on the same selected date.
+- [x] Adding a task and reloading 20 times never hides or duplicates the confirmed Supabase row.
+- [x] Loading is visually distinct from a genuinely empty day; a failed fetch never masquerades as “0 tasks.”
+- [ ] A long press opens the task action menu without firing during normal vertical scrolling. (Movement-cancel logic is implemented; final physical iPhone touch QA remains.)
+- [x] **Move to tomorrow** removes exactly one task from today, creates no duplicate row, shows it tomorrow, and can be undone.
+- [x] The three-dot task menu exposes the same move action for users who do not discover or cannot use long press.
+- [x] One routine submission creates exactly one row; the Add button cannot be submitted twice while saving.
+- [x] Routine settings contain no Move earlier or Move later controls.
+- [x] Daily Tasks does not repeat Today beneath the full date.
+- [x] The routine calendar contains no “Week of…” subtitle and remains understandable as a seven-day cycle.
+
+**Local verification evidence:** the real `Dub Reel` and `Make Tracks` rows were found intact on 25 July rather than deleted. Daily Tasks and 25 July restored correctly in 20/20 consecutive reloads and through browser back navigation. `Dub Reel` was moved to 26 July, verified there, then restored with Undo. Two simultaneous submissions of a temporary routine created one row, which was removed after the test. The production build passes with no browser console errors.
 
 ### Phase 0 — Product foundation
 
@@ -328,3 +330,4 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 | 2026-07-25 | Rebuilt DayPlan around coordinated Today and Week views. | Phone-width browser QA confirms full routine names, seven tappable day cells, running counts, totals, undo, dedicated edit sheets, archive/restore, colour, reorder controls, and no title-to-rename shortcut. Daily Tasks now uses the same card, date-navigation, and edit-sheet system. |
 | 2026-07-25 | Prevented iPhone zoom when opening routine and task settings. | Settings sheets no longer auto-focus their title field; all mobile form controls use a Safari-safe 16px text size. |
 | 2026-07-26 | Planned Release 1.1 reliability and mobile-interaction correction from family phone testing. | Plan covers task persistence auditing, module/date reload restoration, long-press Move to tomorrow with menu alternative and Undo, single-submit routine creation, removal of routine reorder controls, and simplified date labels. Implementation pending. |
+| 2026-07-26 | Implemented Release 1.1 reliability and interaction corrections locally. | 20/20 reload test passed; real task move/Undo and duplicate-submit cleanup passed; production build and browser console checks passed. Physical iPhone long-press/scroll QA remains before closing the release. |
