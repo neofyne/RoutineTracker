@@ -1,6 +1,6 @@
 # DayPlan — Living Product & Implementation Plan
 
-**Status:** Draft v1 — 25 July 2026  
+**Status:** Active living plan — updated 26 July 2026
 **Purpose:** The single maintained plan for scope, decisions, delivery progress, and later feature additions.
 
 ## 1. Product statement
@@ -8,7 +8,7 @@
 DayPlan is a calm, spreadsheet-like personal productivity app with two deliberately separate modes:
 
 1. **Routine Tracker** for recurring practices, recorded in weekly grids with a per-routine running completion count.
-2. **Daily Tasks** for one-time tasks, organised by date with quick completion and carry-forward actions.
+2. **Daily Tasks** for one-time tasks, organised by date with quick completion and a deliberate Move to tomorrow action.
 
 The app should feel fast, focused, and premium rather than gamified or visually noisy. It must retain all history and restore it after a device change.
 
@@ -23,7 +23,7 @@ The visual direction is **enterprise-grade personal productivity**: calm, precis
 - **Glanceable first:** today, progress, totals, dates, and next actions are understandable without reading dense instructions.
 - **Thumb-friendly:** primary actions are reachable, targets are at least 44 x 44 px, and drag/swipe interactions have visible alternatives.
 - **Progressive disclosure:** keep the grid and task list simple; place editing, notes, archive, and advanced controls behind a focused sheet or menu.
-- **Immediate feedback:** completion, undo, carry-forward, sync, and errors are visible and never leave the user guessing.
+- **Immediate feedback:** completion, undo, Move to tomorrow, sync, and errors are visible and never leave the user guessing.
 - **Accessible by default:** strong contrast in both themes; colour is never the only status signal; keyboard and screen-reader flows work alongside touch gestures.
 - **Consistent modules:** reusable cards, sheets, controls, date navigators, empty states, and confirmation patterns behave the same throughout the app.
 
@@ -33,7 +33,7 @@ The visual direction is **enterprise-grade personal productivity**: calm, precis
 - On mobile, each weekly routine is a full-width card: its complete name and weekly total sit above seven equal day cells. This preserves the original grid logic without squeezing names, days, and totals into one narrow row.
 - Completed weekly cells use the routine colour and show the recalculated running count. Every day remains available for deliberate backfilling; archived routines are read-only.
 - A compact mobile header shows the current week and the most important action, with secondary actions in a bottom sheet or overflow menu.
-- Daily Tasks prioritises a large, fast add field and clear pending/completed blocks; swipe actions include labelled visual previews and accessible action buttons.
+- Daily Tasks prioritises a large, fast add field and clear pending/completed blocks; long-press actions always have an equivalent labelled menu action.
 - Bottom navigation exposes the two primary modules: **Routines** and **Daily Tasks**. No generic dashboard is needed for V1.
 - Forms open in a mobile bottom sheet; destructive actions always require clear confirmation.
 
@@ -50,7 +50,7 @@ The visual direction is **enterprise-grade personal productivity**: calm, precis
 
 - Month navigation and auto-generated Monday–Sunday weekly sheets.
 - Spreadsheet grid: task name, seven dated day columns, and a final **Total** column.
-- Create, rename, colour, reorder, archive, and delete routines.
+- Create, rename, colour, archive, and delete routines. Manual reordering is intentionally omitted from V1.
 - A tap toggles a daily completion. Completed cells use the routine colour and display its running number within that week.
 - Removing a completion recalculates all later running numbers in the week.
 - Weekly total per routine; month and lifetime completion totals in routine details/statistics.
@@ -62,8 +62,9 @@ The visual direction is **enterprise-grade personal productivity**: calm, precis
 - Separate date-based task lists, with history preserved indefinitely.
 - Create, edit, prioritise, reorder, complete, archive, and search one-time tasks.
 - Clear pending/completed sections and a `completed / total` daily summary.
-- Mobile gesture actions: left swipe completes and moves the item to Completed; right swipe creates a copy for the next day.
-- Long press (mobile) / menu (desktop) opens editing.
+- Tap the completion control to move an item between Pending and Completed.
+- Long press (mobile) opens a task action menu. The same actions remain available through the three-dot menu for accessibility and discoverability.
+- **Move to tomorrow** changes the task’s date, removes it from today, and preserves the same task record.
 - Date navigation for today, history, and future carried-forward tasks.
 
 ### Foundation
@@ -91,11 +92,11 @@ The original specification is strong. The additions below close the common gaps 
 | --- | --- | --- |
 | First-use setup | A new user is useful in under a minute. | Offer a skippable starter set (for example: Exercise, Meditation, Reading) and let the user rename, recolour, or start empty. Never force a template. |
 | Today shortcut | Reaches the useful view instantly. | From either module, one tap returns to the current week or today’s task list. |
-| Clear undo | Removes fear of fast actions. | Every completion, removal, archive, and carry-forward shows a brief undo message. Undo restores the exact prior state. |
+| Clear undo | Removes fear of fast actions. | Every completion, removal, archive, and Move to tomorrow action shows a brief undo message. Undo restores the exact prior state. |
 | Safe destructive actions | Prevents accidental data loss. | Archive is the default; permanent deletion requires confirmation and explains what history is affected. |
 | Routine availability date | Keeps old history truthful. | A routine has a `started_on` date. It appears from that date forward; earlier weeks do not imply it was missed. Archived routines remain visible but muted in past history. |
 | Intentional missed days | Distinguishes “not tracked” from “not done.” | V1 leaves untouched cells neutral. A future optional status can mark a day as skipped; it must not inflate totals or counts. |
-| Carry-forward preview | Prevents surprise duplicates. | The swipe reveals “Move to tomorrow”; release/action confirms it. Repeated carry-forward preserves the chain and never overwrites tomorrow’s task. |
+| Move-to-tomorrow menu | Prevents surprise duplicates and an always-visible confusing button. | A deliberate long press opens the task action menu; **Move to tomorrow** changes the task date. The same action is available in the three-dot menu and supports Undo. |
 | Due-time awareness | Makes one-time tasks actionable. | Tasks with a due time are ordered before undated tasks by default, while manual order is retained within each group. Overdue tasks are clearly indicated, never silently hidden. |
 | Duplicate prevention | Avoids everyday task clutter. | When creating a task, warn only if an identical pending title already exists on that same date; the user can still deliberately add it. |
 | Recoverable archive | Keeps the interface clean without losing data. | Archived routines/tasks are excluded from default lists, remain searchable, and can be restored. |
@@ -126,7 +127,7 @@ The original specification is strong. The additions below close the common gaps 
 
 ### B. Routine management without rewriting history
 
-1. The user adds, renames, recolours, or reorders a routine from a focused edit sheet.
+1. The user adds, renames, recolours, archives, or deletes a routine from a focused edit sheet.
 2. New routines begin from their creation/start date; prior weeks remain accurate.
 3. Archiving hides a routine from current tracking but keeps it visible in historical context and search.
 4. Restoring an archived routine retains its colour, order, and past completions.
@@ -136,7 +137,7 @@ The original specification is strong. The additions below close the common gaps 
 1. The user opens Daily Tasks; Today is the default view with a prominent quick-add field.
 2. They add a simple task immediately, with details such as time, note, and priority available but not required.
 3. Completing a task moves it to the day’s Completed section and updates the summary. Undo is always available.
-4. Carrying forward creates a linked pending copy for tomorrow while preserving today’s record.
+4. Moving a task to tomorrow updates its date, removes it from today’s list, and immediately makes it visible tomorrow. Undo restores it to the original date.
 5. At a later date, search finds both active and archived task history.
 
 ### D. Offline or cross-device use
@@ -154,7 +155,7 @@ The original specification is strong. The additions below close the common gaps 
 | Completion model | One completion per routine per date | A second tap removes it; avoids ambiguity in the grid. |
 | Starting a new routine | Available in every existing and future week | Preserves one stable routine list while history remains accurate. |
 | Deleting a routine | Confirmation, then permanent delete | Archive is the safe everyday option; delete stays intentional. |
-| Carry forward | Creates a new pending task tomorrow and keeps today unchanged | Maintains a truthful history. |
+| Move to tomorrow | Updates the existing task’s date and removes it from today | Matches the expected mental model, avoids duplicates, and keeps Undo straightforward. |
 | Timezone | Saved user preference, initially device timezone | Determines date rollover and midnight behaviour. |
 
 **Open choices for the product owner:** whether an archived routine should remain visible in historical weeks (recommended: yes, muted), and whether a carried-forward task should retain a link to its original task (recommended: yes, internally).
@@ -167,8 +168,7 @@ The original specification is strong. The additions below close the common gaps 
 | UI | Tailwind CSS plus accessible, custom spreadsheet/task components |
 | Data and auth | Supabase (Postgres, Auth, Row Level Security) |
 | Data fetching/offline UX | TanStack Query with optimistic updates and persisted cache |
-| Drag/reorder | dnd-kit |
-| Gestures | Pointer-event swipe component, designed alongside accessible button alternatives |
+| Gestures | Pointer-event long-press interaction with movement cancellation, designed alongside the three-dot menu alternative |
 | Hosting | Cloudflare Pages production deployment connected to GitHub (`https://dayplan.pages.dev/`) |
 | Source control | Private GitHub repository |
 
@@ -183,11 +183,76 @@ All user-owned tables have `user_id`, Row Level Security, timestamps, and no cro
 | `profiles` | `id`, `timezone`, `theme` | Extends the authenticated user. |
 | `routines` | `id`, `name`, `color`, `sort_order`, `started_on`, `archived_at` | One persistent routine per user. |
 | `routine_completions` | `id`, `routine_id`, `completed_on`, `note` | Unique `(routine_id, completed_on)` enforces one cell per day. |
-| `daily_tasks` | `id`, `task_date`, `title`, `notes`, `due_time`, `priority`, `sort_order`, `completed_at`, `archived_at`, `carried_from_id` | A copied carry-forward task references its source. |
+| `daily_tasks` | `id`, `task_date`, `title`, `notes`, `due_time`, `priority`, `sort_order`, `completed_at`, `archived_at`, `carried_from_id` | Move to tomorrow updates `task_date` on the same row. `carried_from_id` remains only for backward compatibility with previously copied tasks. |
 
 Add `started_on` to `routines` and sync metadata/version fields where needed. Running counts are calculated from completion dates in the displayed week, rather than stored. This guarantees correct renumbering after an edit.
 
 ## 7. Delivery roadmap
+
+### Immediate release 1.1 — Data reliability and mobile interaction correction
+
+**Status:** Planned on 26 July 2026; no implementation started.
+**Goal:** remove the behaviours that make DayPlan feel unreliable before adding any further feature scope.
+
+#### Confirmed findings and product decisions
+
+| Report | Current cause / evidence | Planned behaviour |
+| --- | --- | --- |
+| Reloading Daily Tasks returns to Routines | The app initialises the active module to `routines`; the module and selected date are not stored in the URL or restored after reload. | Put the active module and selected date in lightweight URL state, with a saved last-view fallback. Reload, browser back/forward, and reopening the installed app restore the same module and date. |
+| Tasks disappear or reappear only after reload | Root cause is not yet proven. The current list has no loading state, request sequencing, or reconciliation after every mutation, so a slow/stale response can look like an empty list. | Begin with a Supabase row audit and a reproducible task lifecycle. Then add explicit loading/error states, stale-request cancellation, mutation reconciliation, and a visible saved/failed result. Never display a premature “empty day” while a request is unresolved. |
+| The visible **Tomorrow** button is confusing | The current action inserts a copy and keeps the original today, which conflicts with the requested workflow. | Remove the visible button. Long press opens an action menu with **Move to tomorrow**; the same action appears in the three-dot menu. It updates the existing task date, removes it from today, adds it tomorrow, and offers Undo. |
+| Move earlier/later is too slow | The settings sheet exposes two serial-order buttons; there is no true drag-and-drop interaction. | Remove both controls and the manual-order promise from V1. Existing stored order remains stable. |
+| Adding a routine can require a second tap and then create duplicates | Routine saving has no in-flight lock, so repeated taps can submit the same insert before the first response closes the sheet. | The first tap immediately enters a visible **Adding…** state and disables all repeat submission. Close the sheet only after one confirmed insert; on failure, keep it open with a retry message. |
+| “Today” is awkwardly placed below the Daily Tasks date | The page heading already says Today, while the date navigator repeats Today as a second centred line. | Remove the redundant line for the current date. Past/future dates use a small, separately tappable **Return to today** action. |
+| “Week of 20 Jul” is unnecessary | The seven date cells already communicate the cycle, and ordinal week labels become ambiguous across month boundaries. | Remove “Week of…”. Show the month/year and the seven-day calendar strip; Week view keeps the explicit date range. |
+
+#### Implementation order
+
+1. **Protect and audit task data**
+   - Reproduce add, complete, edit, date navigation, reload, and move flows against the affected family account.
+   - Inspect the corresponding Supabase rows before and after each step to distinguish missing data from stale rendering.
+   - Add a task-loading state, request identity/cancellation, and a single reload/reconcile path used after mutations.
+   - Keep the last confirmed task list visible during a refresh; show a clear error and Retry if the request fails.
+
+2. **Persist navigation context**
+   - Represent module and date as URL state, for example `?view=tasks&date=2026-07-26`.
+   - Restore the selected module/date before rendering protected content so the app never flashes or lands on the wrong module.
+   - Support browser back/forward and retain Today as the default only for a genuinely new session with no saved state.
+
+3. **Replace copy-to-tomorrow with an intentional move**
+   - Open the existing task action sheet after a 500 ms long press; cancel when the finger moves enough to indicate scrolling.
+   - Keep the three-dot action as the accessible, discoverable alternative.
+   - Update the same task row’s `task_date` instead of inserting a duplicate.
+   - Optimistically remove it from today, confirm it exists tomorrow, and offer Undo that restores the original date.
+   - Guard the mutation so repeated long presses or taps cannot move the task twice.
+
+4. **Make routine creation single-submit and simplify routine settings**
+   - Add a submission mutex and **Adding… / Saving…** button state.
+   - Reconcile the returned row by ID so a success can be rendered only once.
+   - Remove Move earlier and Move later from the sheet and delete the unused UI handler.
+
+5. **Clean up date hierarchy**
+   - Remove the duplicate Today subtitle from Daily Tasks.
+   - Remove “Week of…” from Routines and let the month/year plus seven-day strip provide the calendar context.
+   - Verify the hierarchy with the keyboard open and closed on iPhone-sized screens.
+
+6. **Regression and release gate**
+   - Test Safari on iPhone, the saved home-screen app, the in-app browser, and desktop.
+   - Repeat add/reload/navigation scenarios under normal, slow, interrupted, and recovered network conditions.
+   - Ship only after the acceptance checks below pass against production-like Supabase data.
+
+#### Release 1.1 acceptance checks
+
+- Reloading while Daily Tasks is active returns to Daily Tasks on the same selected date.
+- Adding a task and reloading 20 times never hides or duplicates the confirmed Supabase row.
+- Loading is visually distinct from a genuinely empty day; a failed fetch never masquerades as “0 tasks.”
+- A long press opens the task action menu without firing during normal vertical scrolling.
+- **Move to tomorrow** removes exactly one task from today, creates no duplicate row, shows it tomorrow, and can be undone.
+- The three-dot task menu exposes the same move action for users who do not discover or cannot use long press.
+- One routine submission creates exactly one row; the Add button cannot be submitted twice while saving.
+- Routine settings contain no Move earlier or Move later controls.
+- Daily Tasks does not repeat Today beneath the full date.
+- The routine calendar contains no “Week of…” subtitle and remains understandable as a seven-day cycle.
 
 ### Phase 0 — Product foundation
 
@@ -203,20 +268,20 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 
 - [ ] Add schema, migrations, RLS policies, and seed/development helpers.
 - [ ] Build month/week navigation and deterministic weekly date generation.
-- [ ] Build routine CRUD, colours, archive, search, and persistent manual ordering. (CRUD, colours, archive, and search complete; manual reorder pending.)
+- [ ] Build routine CRUD, colours, archive, and search. (Manual reordering was removed from V1 by the 26 July 2026 decision.)
 - [ ] Add started dates so new routines do not rewrite historical weeks.
 - [ ] Build desktop/mobile tracker grid, single-tap completion, undo, totals, and automatic renumbering.
 - [ ] Add optimistic updates and retry-safe error feedback.
-- **Exit condition:** routines and weekly history survive refresh, device change, edits, and reordering.
+- **Exit condition:** routines and weekly history survive refresh, device change, and edits.
 
 ### Phase 2 — Daily Tasks core
 
 - [ ] Build date navigation, task creation/editing, priorities, notes, and ordering.
 - [ ] Add same-day duplicate awareness, due-time ordering, and overdue visual state.
 - [x] Build date navigation, task creation, priorities, due-time entry, and due-time ordering.
-- [x] Add same-day duplicate awareness and accessible explicit carry-forward action.
+- [ ] Replace the current visible copy-forward button with transactional Move to tomorrow, long press, menu alternative, and Undo.
 - [x] Build pending/completed sections and daily summary.
-- [ ] Implement mobile swipe-left completion and swipe-right carry-forward gestures (explicit action buttons are complete).
+- [ ] Implement long-press task actions with a three-dot menu alternative and transactional Move to tomorrow.
 - [ ] Add daily/history search and archiving.
 - **Exit condition:** a carried-forward task appears correctly tomorrow while the original remains in its historic day.
 
@@ -225,7 +290,7 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 - [ ] Add routine statistics and completion notes UI.
 - [ ] Refine empty/loading/offline/conflict states and mobile touch targets.
 - [ ] Test keyboard navigation, screen readers, light/dark contrast, and gestures.
-- [ ] Add unit tests for date boundaries, counts, reorder logic, carry-forward, and RLS integration checks.
+- [ ] Add unit tests for date boundaries, counts, single-submit protection, Move to tomorrow, and RLS integration checks.
 - [ ] Add privacy copy, app icon, metadata, and production monitoring.
 - **Exit condition:** all V1 acceptance checks pass on phone and desktop, using a production-like Supabase environment.
 
@@ -237,7 +302,7 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 - New weeks render without manual creation and past weeks never disappear.
 - Routine order, colours, archive state, and task order persist after reload/login on another device.
 - Completing a daily task moves it into the day’s completed section without deleting it.
-- Carry forward creates exactly one pending task on the following date and preserves source history.
+- Move to tomorrow updates exactly one task row, removes it from the source date, shows it on the following date, and can be undone.
 - No user can read or write another user’s data.
 - Core flows work comfortably at phone width and on desktop.
 
@@ -262,3 +327,4 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 | 2026-07-25 | Replaced the mobile routine spreadsheet with a phone-first daily routine list. | Seven-day history is retained as compact progress markers; full titles, completion control, and weekly total fit without horizontal scrolling. |
 | 2026-07-25 | Rebuilt DayPlan around coordinated Today and Week views. | Phone-width browser QA confirms full routine names, seven tappable day cells, running counts, totals, undo, dedicated edit sheets, archive/restore, colour, reorder controls, and no title-to-rename shortcut. Daily Tasks now uses the same card, date-navigation, and edit-sheet system. |
 | 2026-07-25 | Prevented iPhone zoom when opening routine and task settings. | Settings sheets no longer auto-focus their title field; all mobile form controls use a Safari-safe 16px text size. |
+| 2026-07-26 | Planned Release 1.1 reliability and mobile-interaction correction from family phone testing. | Plan covers task persistence auditing, module/date reload restoration, long-press Move to tomorrow with menu alternative and Undo, single-submit routine creation, removal of routine reorder controls, and simplified date labels. Implementation pending. |
