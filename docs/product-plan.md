@@ -191,7 +191,7 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 
 ### Immediate release 1.1 — Data reliability and mobile interaction correction
 
-**Status:** Implemented locally on 26 July 2026; production deployment pending.
+**Status:** Implemented and deployed to production on 26 July 2026.
 **Goal:** remove the behaviours that make DayPlan feel unreliable before adding any further feature scope.
 
 #### Confirmed findings and product decisions
@@ -336,3 +336,4 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 | 2026-07-26 | Planned Release 1.1 reliability and mobile-interaction correction from family phone testing. | Plan covers task persistence auditing, module/date reload restoration, long-press Move to tomorrow with menu alternative and Undo, single-submit routine creation, removal of routine reorder controls, and simplified date labels. Implementation pending. |
 | 2026-07-26 | Implemented Release 1.1 reliability and interaction corrections locally. | 20/20 reload test passed; real task move/Undo and duplicate-submit cleanup passed; production build and browser console checks passed. Physical iPhone long-press/scroll QA remains before closing the release. |
 | 2026-07-26 | Added a dedicated routine Reorder mode after family feedback restored ordering to V1. | Compact full-name rows use handle-only phone/desktop dragging, edge auto-scroll, keyboard-arrow fallback, and save the order after each completed move; Move earlier/later remains absent from routine settings. |
+| 2026-07-26 | Deployed the Reorder mode and Release 1.1 fixes to Cloudflare Pages production. | `https://dayplan.pages.dev/` returned HTTP 200 and served the exact built `index-B8cASWt2.js` and `index-HdpleOjT.css` assets; Cloudflare deployment `f8e8c642.dayplan.pages.dev` completed successfully. |
