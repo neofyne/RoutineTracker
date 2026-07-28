@@ -1,6 +1,6 @@
 # DayPlan — Living Product & Implementation Plan
 
-**Status:** Active living plan — updated 26 July 2026
+**Status:** Active living plan — updated 28 July 2026
 **Purpose:** The single maintained plan for scope, decisions, delivery progress, and later feature additions.
 
 ## 1. Product statement
@@ -292,6 +292,7 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 
 ### Phase 3 — Polish and release readiness
 
+- [x] Add a brief two-note success chime after a confirmed task/routine creation or completion.
 - [ ] Add routine statistics and completion notes UI.
 - [ ] Refine empty/loading/offline/conflict states and mobile touch targets.
 - [ ] Test keyboard navigation, screen readers, light/dark contrast, and gestures.
@@ -337,3 +338,4 @@ Add `started_on` to `routines` and sync metadata/version fields where needed. Ru
 | 2026-07-26 | Implemented Release 1.1 reliability and interaction corrections locally. | 20/20 reload test passed; real task move/Undo and duplicate-submit cleanup passed; production build and browser console checks passed. Physical iPhone long-press/scroll QA remains before closing the release. |
 | 2026-07-26 | Added a dedicated routine Reorder mode after family feedback restored ordering to V1. | Compact full-name rows use handle-only phone/desktop dragging, edge auto-scroll, keyboard-arrow fallback, and save the order after each completed move; Move earlier/later remains absent from routine settings. |
 | 2026-07-26 | Deployed the Reorder mode and Release 1.1 fixes to Cloudflare Pages production. | `https://dayplan.pages.dev/` returned HTTP 200 and served the exact built `index-B8cASWt2.js` and `index-HdpleOjT.css` assets; Cloudflare deployment `f8e8c642.dayplan.pages.dev` completed successfully. |
+| 2026-07-28 | Added success audio feedback for confirmed task/routine creation and completion. | A compact two-note browser chime is generated locally with Web Audio; it has no network or asset dependency. |

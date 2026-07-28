@@ -19,6 +19,42 @@ const fullDate = (date: Date) => date.toLocaleDateString(undefined, { weekday: '
 const taskFields = 'id,task_date,title,notes,completed_at,due_time,priority,sort_order'
 const dailyTaskCache = new Map<string, Task[]>()
 const validViews: View[] = ['routines', 'tasks', 'account']
+let feedbackAudioContext: AudioContext | null = null
+
+function prepareFeedbackSound() {
+  try {
+    const AudioContextClass = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextClass) return
+    feedbackAudioContext ??= new AudioContextClass()
+    if (feedbackAudioContext.state === 'suspended') void feedbackAudioContext.resume()
+  } catch {
+    // Audio feedback is optional; the tracker remains fully usable when unavailable.
+  }
+}
+
+function playSuccessSound() {
+  try {
+    const context = feedbackAudioContext
+    if (!context || context.state !== 'running') return
+    const start = context.currentTime
+    ;[523.25, 659.25].forEach((frequency, index) => {
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
+      const noteStart = start + index * 0.11
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(frequency, noteStart)
+      gain.gain.setValueAtTime(0.0001, noteStart)
+      gain.gain.exponentialRampToValueAtTime(0.09, noteStart + 0.012)
+      gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + 0.2)
+      oscillator.connect(gain).connect(context.destination)
+      oscillator.start(noteStart)
+      oscillator.stop(noteStart + 0.22)
+    })
+  } catch {
+    // Never let optional feedback interfere with a completed action.
+  }
+}
+
 const isView = (value: string | null): value is View => Boolean(value && validViews.includes(value as View))
 const isDateKey = (value: string | null): value is string => Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(dateFromKey(value).getTime()))
 const initialView = (): View => {
@@ -338,6 +374,7 @@ function RoutineTracker({ userId }: { userId: string }) {
 
   async function toggle(routine: Routine, date: string) {
     if (!supabase || routine.archived_at) return
+    prepareFeedbackSound()
     const client = supabase
     const existing = completions.find((item) => item.routine_id === routine.id && item.completed_on === date)
     if (existing) {
@@ -360,6 +397,7 @@ function RoutineTracker({ userId }: { userId: string }) {
       const added = data as Completion
       setCompletions((current) => [...current, added])
       setMessage('')
+      playSuccessSound()
       setUndo({
         label: `${routine.name} completed`,
         run: async () => {
@@ -372,6 +410,7 @@ function RoutineTracker({ userId }: { userId: string }) {
 
   async function saveRoutine(name: string, color: string) {
     if (!supabase) return false
+    prepareFeedbackSound()
     if (editor === 'new') {
       const nextOrder = Math.max(-1, ...routines.map((routine) => routine.sort_order)) + 1
       const { data, error } = await supabase.from('routines').insert({ user_id: userId, name, color, sort_order: nextOrder, started_on: dateKey(today) }).select('id,name,color,sort_order,started_on,archived_at').single()
@@ -390,6 +429,7 @@ function RoutineTracker({ userId }: { userId: string }) {
     }
     setMessage('')
     setEditor(null)
+    playSuccessSound()
     return true
   }
 
@@ -576,6 +616,7 @@ function DailyTasks({ userId, selectedDate, onDateChange }: { userId: string; se
     const clean = title.trim()
     if (!clean || !supabase || addingRef.current) return
     if (tasks.some((task) => !task.completed_at && task.title.toLowerCase() === clean.toLowerCase()) && !window.confirm('A matching pending task already exists. Add another?')) return
+    prepareFeedbackSound()
     addingRef.current = true
     setAdding(true)
     const nextOrder = Math.max(-1, ...tasks.map((task) => Number(task.sort_order))) + 1
@@ -588,6 +629,7 @@ function DailyTasks({ userId, selectedDate, onDateChange }: { userId: string; se
       setDueTime('')
       setPriority('none')
       setMessage('')
+      playSuccessSound()
     }
     addingRef.current = false
     setAdding(false)
@@ -595,11 +637,13 @@ function DailyTasks({ userId, selectedDate, onDateChange }: { userId: string; se
 
   async function toggleTask(task: Task) {
     if (!supabase) return
+    prepareFeedbackSound()
     const client = supabase
     const completed_at = task.completed_at ? null : new Date().toISOString()
     const { error } = await client.from('daily_tasks').update({ completed_at }).eq('id', task.id)
     if (error) return setMessage(error.message)
     commitTasks((current) => current.map((item) => item.id === task.id ? { ...item, completed_at } : item))
+    if (completed_at) playSuccessSound()
     setUndo({ label: completed_at ? `${task.title} completed` : `${task.title} reopened`, run: async () => {
       await client.from('daily_tasks').update({ completed_at: task.completed_at }).eq('id', task.id)
       commitTasks((current) => current.map((item) => item.id === task.id ? task : item))
