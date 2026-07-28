@@ -487,8 +487,10 @@ function RoutineTracker({ userId }: { userId: string }) {
           return <article className={`today-routine-card ${count ? 'complete' : ''} ${routine.archived_at ? 'archived' : ''}`} key={routine.id} style={{ '--routine-color': routine.color } as React.CSSProperties}>
             <button className="today-check" disabled={unavailable} onClick={() => toggle(routine, selectedDate)} aria-label={`${count ? 'Remove completion for' : 'Complete'} ${routine.name}`}>{count ?? <AppIcon name="check" />}</button>
             <div className="today-routine-copy"><strong>{routine.name}</strong><span>{routine.archived_at ? 'Archived' : count ? `Completion ${count} this week` : 'Tap the circle when done'}</span><div className="mini-week">{week.map((day) => <i key={dateKey(day)} className={runningNumber(routine.id, dateKey(day)) ? 'done' : ''} />)}</div></div>
-            <div className="routine-score"><strong>{total}</strong><span>/ 7</span></div>
-            <button className="more-button" onClick={() => setEditor(routine)} aria-label={`Manage ${routine.name}`}><AppIcon name="more" /></button>
+            <div className="today-routine-actions">
+              <div className="routine-score"><strong>{total}</strong><span>/ 7</span></div>
+              <button className="more-button" onClick={() => setEditor(routine)} aria-label={`Manage ${routine.name}`}><AppIcon name="more" /></button>
+            </div>
           </article>
         })}</div>
         : <div className="week-board">{matching.map((routine) => {
