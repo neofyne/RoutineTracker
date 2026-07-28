@@ -7,20 +7,23 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint . --max-warnings=0",
-    "preview": "vite preview",
-    "deploy:cloudflare": "npm run build && npx wrangler pages deploy dist --project-name=dayplan"
+    "preview": "npm run build && wrangler dev",
+    "deploy:cloudflare": "npm run build && npx wrangler pages deploy dist --project-name=dayplan",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
     "@vitejs/plugin-react": "^5.0.2",
-    "vite": "^7.1.7",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "vite": "^7.1.7"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.47.0",
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "wrangler": "^4.114.0"
   }
 }
