@@ -554,7 +554,7 @@ function RoutineEditor({ routine, onClose, onSave, onArchive, onDelete }: { rout
         <fieldset disabled={saving}><legend>Routine colour</legend><div className="color-palette">{routinePalette.map((value) => <button type="button" key={value} className={value === color ? 'selected' : ''} style={{ backgroundColor: value }} onClick={() => setColor(value)} aria-label={`Choose ${value}`} />)}</div></fieldset>
         <button className="primary-button sheet-save" disabled={saving} type="submit">{saving ? (routine ? 'Saving…' : 'Adding…') : routine ? 'Save changes' : 'Add routine'}</button>
       </form>
-      {routine && <div className="sheet-actions">
+      {routine && <div className="sheet-actions routine-sheet-actions">
         <button onClick={() => onArchive(routine)}><AppIcon name="archive" />{routine.archived_at ? 'Restore routine' : 'Archive routine'}</button>
         <button className="danger" onClick={() => onDelete(routine)}><AppIcon name="trash" />Delete permanently</button>
       </div>}

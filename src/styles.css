@@ -185,6 +185,7 @@ button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: no
 .sheet-save { width: 100%; }
 .sheet-actions { display: grid; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
 .sheet-actions > button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; background: transparent; font-size: .78rem; font-weight: 800; }
+.routine-sheet-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .sheet-actions .move-tomorrow { border-color: color-mix(in srgb, var(--brand) 24%, var(--line)); background: var(--brand-soft); color: var(--brand); }
 .sheet-actions .move-tomorrow .icon { transform: rotate(180deg); }
 .sheet-actions .danger { color: var(--danger); }
