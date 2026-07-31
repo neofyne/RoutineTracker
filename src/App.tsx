@@ -14,6 +14,7 @@ const today = new Date()
 const routinePalette = ['#117865', '#3d68d8', '#8b4bc1', '#dc7923', '#c54850', '#237d9b', '#a6602b', '#6c6f78']
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 const dateFromKey = (key: string) => new Date(`${key}T12:00:00`)
+const offsetDateKey = (key: string, days: number) => { const date = dateFromKey(key); date.setDate(date.getDate() + days); return dateKey(date) }
 const shortDate = (date: Date) => date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 const fullDate = (date: Date) => date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 const taskFields = 'id,task_date,title,notes,completed_at,due_time,priority,sort_order'
@@ -577,6 +578,12 @@ function DailyTasks({ userId, selectedDate, onDateChange }: { userId: string; se
   const [movingTaskId, setMovingTaskId] = useState<string | null>(null)
   const [undo, setUndo] = useState<UndoAction | null>(null)
   const [editor, setEditor] = useState<Task | null>(null)
+  const [carryOpen, setCarryOpen] = useState(false)
+  const [carryDate, setCarryDate] = useState(() => offsetDateKey(dateKey(today), -1))
+  const [carryTasks, setCarryTasks] = useState<Task[]>([])
+  const [carryLoading, setCarryLoading] = useState(false)
+  const [carryMoving, setCarryMoving] = useState(false)
+  const [carryError, setCarryError] = useState('')
   const requestRef = useRef(0)
   const addingRef = useRef(false)
   const movingRef = useRef<string | null>(null)
@@ -707,13 +714,71 @@ function DailyTasks({ userId, selectedDate, onDateChange }: { userId: string; se
     setEditor(null)
   }
 
+  async function loadCarryTasks(sourceDate: string) {
+    if (!supabase || sourceDate >= dateKey(today)) {
+      setCarryTasks([])
+      setCarryError(sourceDate === dateKey(today) ? 'Choose an earlier date.' : '')
+      return
+    }
+    setCarryLoading(true)
+    setCarryError('')
+    const { data, error } = await supabase.from('daily_tasks').select(taskFields).eq('user_id', userId).eq('task_date', sourceDate).is('archived_at', null).is('completed_at', null).order('sort_order')
+    if (error) {
+      setCarryTasks([])
+      setCarryError(error.message)
+    } else {
+      setCarryTasks((data ?? []) as Task[])
+    }
+    setCarryLoading(false)
+  }
+
+  function openCarry() {
+    const defaultDate = selectedDate < dateKey(today) ? selectedDate : offsetDateKey(dateKey(today), -1)
+    setCarryDate(defaultDate)
+    setCarryOpen(true)
+    void loadCarryTasks(defaultDate)
+  }
+
+  async function movePendingToToday() {
+    if (!supabase || carryMoving || !carryTasks.length || carryDate >= dateKey(today)) return
+    setCarryMoving(true)
+    setCarryError('')
+    const client = supabase
+    const baseOrder = Math.max(-1, ...tasks.map((task) => Number(task.sort_order))) + 1
+    const moved: Task[] = []
+    const originalOrders = new Map(carryTasks.map((task) => [task.id, task.sort_order]))
+    for (const [index, task] of carryTasks.entries()) {
+      const { data, error } = await client.from('daily_tasks').update({ task_date: dateKey(today), sort_order: baseOrder + index }).eq('id', task.id).eq('user_id', userId).select(taskFields).single()
+      if (error || !data) {
+        setCarryError(error?.message ?? 'Some tasks could not be moved. Please try again.')
+        break
+      }
+      moved.push(data as Task)
+    }
+    if (moved.length) {
+      const sourceCacheKey = `${userId}:${carryDate}`
+      dailyTaskCache.set(sourceCacheKey, (dailyTaskCache.get(sourceCacheKey) ?? []).filter((task) => !moved.some((item) => item.id === task.id)))
+      dailyTaskCache.set(`${userId}:${dateKey(today)}`, [...(dailyTaskCache.get(`${userId}:${dateKey(today)}`) ?? tasks), ...moved])
+      if (selectedDate === dateKey(today)) commitTasks((current) => [...current, ...moved])
+      setCarryTasks((current) => current.filter((task) => !moved.some((item) => item.id === task.id)))
+      setUndo({ label: `${moved.length} pending ${moved.length === 1 ? 'task' : 'tasks'} moved to today`, run: async () => {
+        for (const task of moved) await client.from('daily_tasks').update({ task_date: carryDate, sort_order: originalOrders.get(task.id) ?? task.sort_order }).eq('id', task.id)
+        dailyTaskCache.delete(`${userId}:${dateKey(today)}`)
+        dailyTaskCache.delete(`${userId}:${carryDate}`)
+        if (selectedDate === dateKey(today)) setReloadVersion((value) => value + 1)
+      }})
+      if (!carryTasks.slice(moved.length).length) setCarryOpen(false)
+    }
+    setCarryMoving(false)
+  }
+
   const filtered = tasks.filter((task) => task.title.toLowerCase().includes(search.toLowerCase()))
   const pending = filtered.filter((task) => !task.completed_at).sort((a, b) => (a.due_time ?? '99:99').localeCompare(b.due_time ?? '99:99'))
   const completed = filtered.filter((task) => task.completed_at)
   const done = tasks.filter((task) => task.completed_at).length
 
   return <>
-    <section className="screen-heading"><div><p className="eyebrow">DAILY TASKS</p><h1>{selectedDate === dateKey(today) ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'long' })}</h1><p>{loading && tasks.length === 0 ? `Loading tasks · ${shortDate(date)}` : `${done} of ${tasks.length} complete · ${shortDate(date)}`}</p></div></section>
+    <section className="screen-heading"><div><p className="eyebrow">DAILY TASKS</p><h1>{selectedDate === dateKey(today) ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'long' })}</h1><p>{loading && tasks.length === 0 ? `Loading tasks · ${shortDate(date)}` : `${done} of ${tasks.length} complete · ${shortDate(date)}`}</p></div><button className="secondary-action" onClick={openCarry}><AppIcon name="arrow" />Bring pending</button></section>
     <TaskDateNavigator date={date} onPrevious={() => { const next = new Date(date); next.setDate(next.getDate() - 1); onDateChange(dateKey(next)) }} onNext={() => { const next = new Date(date); next.setDate(next.getDate() + 1); onDateChange(dateKey(next)) }} onToday={() => onDateChange(dateKey(today))} />
     <section className="task-composer">
       <form onSubmit={addTask}><input disabled={adding} aria-label="New daily task" placeholder="What needs to get done?" value={title} onChange={(event) => setTitle(event.target.value)} /><button className="primary-button" disabled={adding} type="submit"><AppIcon name="plus" />{adding ? 'Adding…' : 'Add'}</button></form>
@@ -729,7 +794,21 @@ function DailyTasks({ userId, selectedDate, onDateChange }: { userId: string; se
     {message && <p className="inline-error" role="status">{message}</p>}
     {undo && <UndoToast action={undo} onClose={() => setUndo(null)} />}
     {editor && <TaskEditor key={editor.id} task={editor} moving={movingTaskId === editor.id} onClose={() => setEditor(null)} onSave={saveTask} onMoveToTomorrow={moveToTomorrow} onArchive={archiveTask} />}
+    {carryOpen && <PendingCarrySheet sourceDate={carryDate} tasks={carryTasks} loading={carryLoading} moving={carryMoving} error={carryError} onDateChange={(nextDate) => { setCarryDate(nextDate); void loadCarryTasks(nextDate) }} onMove={movePendingToToday} onClose={() => setCarryOpen(false)} />}
   </>
+}
+
+function PendingCarrySheet({ sourceDate, tasks, loading, moving, error, onDateChange, onMove, onClose }: { sourceDate: string; tasks: Task[]; loading: boolean; moving: boolean; error: string; onDateChange: (date: string) => void; onMove: () => void; onClose: () => void }) {
+  const source = dateFromKey(sourceDate)
+  return <div className="sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !moving) onClose() }}>
+    <section className="bottom-sheet carry-sheet" role="dialog" aria-modal="true" aria-labelledby="carry-title" aria-busy={moving}>
+      <header><div><p className="eyebrow">CARRY FORWARD</p><h2 id="carry-title">Bring pending to today</h2></div><button className="icon-button" disabled={moving} onClick={onClose} aria-label="Close"><AppIcon name="close" /></button></header>
+      <p className="carry-copy">Choose an earlier day. Unfinished Daily Tasks will move as the same records; nothing is copied or deleted.</p>
+      <label className="carry-date">Source date<input type="date" max={offsetDateKey(dateKey(today), -1)} value={sourceDate} onChange={(event) => onDateChange(event.target.value)} /></label>
+      {loading ? <p className="carry-status" role="status">Checking pending tasks…</p> : error ? <p className="inline-error" role="alert">{error}</p> : tasks.length ? <div className="carry-preview"><strong>{tasks.length} pending {tasks.length === 1 ? 'task' : 'tasks'}</strong><span>{source.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</span><ul>{tasks.slice(0, 4).map((task) => <li key={task.id}>{task.title}</li>)}{tasks.length > 4 && <li>+ {tasks.length - 4} more</li>}</ul></div> : <div className="carry-empty"><strong>No pending tasks on this date</strong><span>Routines are recurring and already available in today’s Routines view.</span></div>}
+      <button className="primary-button sheet-save" disabled={moving || loading || !tasks.length || Boolean(error)} onClick={onMove}>{moving ? 'Moving…' : `Move ${tasks.length || ''} to today`}</button>
+    </section>
+  </div>
 }
 
 function TaskDateNavigator({ date, onPrevious, onNext, onToday }: { date: Date; onPrevious: () => void; onNext: () => void; onToday: () => void }) {

@@ -66,6 +66,7 @@ The visual direction is **enterprise-grade personal productivity**: calm, precis
 - Long press (mobile) opens a task action menu. The same actions remain available through the three-dot menu for accessibility and discoverability.
 - **Move to tomorrow** changes the task’s date, removes it from today, and preserves the same task record.
 - Date navigation for today, history, and future carried-forward tasks.
+- **Bring pending to today** lets the user choose any earlier date, previews its unfinished one-time tasks, and moves those existing rows to today in one confirmed action. Recurring routines are not copied or auto-completed; they already remain available on today’s routine view.
 
 ### Foundation
 
