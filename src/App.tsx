@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 
-type View = 'routines' | 'tasks' | 'account'
+type View = 'routines' | 'tasks' | 'stats' | 'account'
 type Theme = 'light' | 'dark'
 type RoutineMode = 'today' | 'week'
 type Routine = { id: string; name: string; color: string; sort_order: number; started_on: string; archived_at: string | null }
@@ -19,7 +19,7 @@ const shortDate = (date: Date) => date.toLocaleDateString(undefined, { day: 'num
 const fullDate = (date: Date) => date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 const taskFields = 'id,task_date,title,notes,completed_at,due_time,priority,sort_order'
 const dailyTaskCache = new Map<string, Task[]>()
-const validViews: View[] = ['routines', 'tasks', 'account']
+const validViews: View[] = ['routines', 'tasks', 'stats', 'account']
 let feedbackAudioContext: AudioContext | null = null
 
 function prepareFeedbackSound(): Promise<AudioContext | null> {
@@ -72,7 +72,7 @@ const initialTaskDate = () => {
   return isDateKey(queryDate) ? queryDate : isDateKey(savedDate) ? savedDate : dateKey(today)
 }
 
-function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 'arrow' | 'user' | 'more' | 'close' | 'calendar' | 'list' | 'archive' | 'trash' | 'grip' }) {
+function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 'arrow' | 'user' | 'more' | 'close' | 'calendar' | 'list' | 'archive' | 'trash' | 'grip' | 'chart' }) {
   const paths = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
     check: <path d="m5 12 4.2 4L19.5 6" />,
@@ -88,6 +88,7 @@ function AppIcon({ name }: { name: 'grid' | 'check' | 'plus' | 'sun' | 'moon' | 
     archive: <><path d="M4 7h16v13H4zM3 3h18v4H3zM9 11h6" /></>,
     trash: <><path d="M4 7h16M9 3h6l1 4H8l1-4ZM7 7l1 14h8l1-14" /></>,
     grip: <><circle cx="8" cy="6" r="1.25" fill="currentColor" stroke="none" /><circle cx="16" cy="6" r="1.25" fill="currentColor" stroke="none" /><circle cx="8" cy="12" r="1.25" fill="currentColor" stroke="none" /><circle cx="16" cy="12" r="1.25" fill="currentColor" stroke="none" /><circle cx="8" cy="18" r="1.25" fill="currentColor" stroke="none" /><circle cx="16" cy="18" r="1.25" fill="currentColor" stroke="none" /></>,
+    chart: <><path d="M4 19V5M4 19h16" /><path d="m7 15 3-4 3 2 5-7" /></>,
   }
   return <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>
 }
@@ -183,11 +184,12 @@ export function App() {
       <button className="icon-button" aria-label="Toggle colour theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}><AppIcon name={theme === 'light' ? 'moon' : 'sun'} /></button>
     </header>
     <section className="page-content">
-      {view === 'routines' ? <RoutineTracker userId={session.user.id} /> : view === 'tasks' ? <DailyTasks key={`${session.user.id}:${taskDate}`} userId={session.user.id} selectedDate={taskDate} onDateChange={selectTaskDate} /> : <AccountScreen email={session.user.email ?? ''} onSignOut={signOut} />}
+      {view === 'routines' ? <RoutineTracker userId={session.user.id} /> : view === 'tasks' ? <DailyTasks key={`${session.user.id}:${taskDate}`} userId={session.user.id} selectedDate={taskDate} onDateChange={selectTaskDate} /> : view === 'stats' ? <Statistics userId={session.user.id} /> : <AccountScreen email={session.user.email ?? ''} onSignOut={signOut} />}
     </section>
     <nav className="bottom-nav" aria-label="Primary navigation">
       <button className={view === 'routines' ? 'active' : ''} onClick={() => selectView('routines')}><AppIcon name="grid" /><span>Routines</span></button>
       <button className={view === 'tasks' ? 'active' : ''} onClick={() => selectView('tasks')}><AppIcon name="check" /><span>Daily Tasks</span></button>
+      <button className={view === 'stats' ? 'active' : ''} onClick={() => selectView('stats')}><AppIcon name="chart" /><span>Stats</span></button>
       <button className={view === 'account' ? 'active' : ''} onClick={() => selectView('account')}><AppIcon name="user" /><span>Account</span></button>
     </nav>
   </main>
@@ -498,7 +500,7 @@ function RoutineTracker({ userId }: { userId: string }) {
         : <div className="week-board">{matching.map((routine) => {
           const total = rowFor(routine.id).length
           return <article className={`week-routine-card ${routine.archived_at ? 'archived' : ''}`} key={routine.id} style={{ '--routine-color': routine.color } as React.CSSProperties}>
-            <header><div><i /><strong>{routine.name}</strong></div><span><b>{total}</b> / 7</span><button className="more-button" onClick={() => setEditor(routine)} aria-label={`Manage ${routine.name}`}><AppIcon name="more" /></button></header>
+            <header><div><i /><strong>{routine.name}</strong></div><div className="week-card-actions"><span><b>{total}</b> / 7</span><button className="more-button" onClick={() => setEditor(routine)} aria-label={`Manage ${routine.name}`}><AppIcon name="more" /></button></div></header>
             <div className="week-cells">{week.map((day) => {
               const key = dateKey(day)
               const count = runningNumber(routine.id, key)
@@ -785,9 +787,8 @@ function DailyTasks({ userId, selectedDate, onDateChange }: { userId: string; se
       <div><select disabled={adding} aria-label="Priority" value={priority} onChange={(event) => setPriority(event.target.value as Task['priority'])}><option value="none">No priority</option><option value="high">High priority</option><option value="medium">Medium priority</option><option value="low">Low priority</option></select><input disabled={adding} aria-label="Due time" type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} /></div>
     </section>
     <label className="search-field task-search"><span aria-hidden>⌕</span><input aria-label="Search tasks" placeholder="Search this day" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
-    {loading && tasks.length === 0 ? <TaskLoadingState /> : loadError && tasks.length === 0 ? <LoadFailure message={loadError} onRetry={() => setReloadVersion((value) => value + 1)} /> : tasks.length === 0 ? <EmptyState title="A clear day ahead" copy="Add a one-time task above. Routines stay in their own tab." action={null} /> : <section className="task-board">
+    {loading && tasks.length === 0 ? <TaskLoadingState /> : loadError && tasks.length === 0 ? <LoadFailure message={loadError} onRetry={() => setReloadVersion((value) => value + 1)} /> : pending.length === 0 ? <EmptyState title="A clear day ahead" copy={completed.length ? 'Completed tasks are tucked away. Your progress is preserved in Statistics.' : 'Add a one-time task above. Routines stay in their own tab.'} action={null} /> : <section className="task-board">
       <TaskSection title="Pending" tasks={pending} onToggle={toggleTask} onEdit={setEditor} />
-      {completed.length > 0 && <TaskSection title="Completed" tasks={completed} onToggle={toggleTask} onEdit={setEditor} />}
     </section>}
     {loading && tasks.length > 0 && <p className="sync-note" role="status">Refreshing tasks…</p>}
     {loadError && tasks.length > 0 && <p className="inline-error" role="alert">{loadError} <button onClick={() => setReloadVersion((value) => value + 1)}>Retry</button></p>}
@@ -866,6 +867,70 @@ function TaskEditor({ task, moving, onClose, onSave, onMoveToTomorrow, onArchive
       </div>
     </section>
   </div>
+}
+
+type StatsPreset = 'today' | 'yesterday' | '7' | '15' | '30' | 'year' | 'custom'
+type StatsTask = { id: string; task_date: string; completed_at: string | null }
+type StatsCompletion = { id: string; completed_on: string }
+
+function Statistics({ userId }: { userId: string }) {
+  const [preset, setPreset] = useState<StatsPreset>('7')
+  const [customStart, setCustomStart] = useState(offsetDateKey(dateKey(today), -6))
+  const [customEnd, setCustomEnd] = useState(dateKey(today))
+  const [tasks, setTasks] = useState<StatsTask[]>([])
+  const [completions, setCompletions] = useState<StatsCompletion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const range = useMemo(() => {
+    const end = dateKey(today)
+    if (preset === 'today') return { start: end, end }
+    if (preset === 'yesterday') { const yesterday = offsetDateKey(end, -1); return { start: yesterday, end: yesterday } }
+    if (preset === 'year') return { start: `${today.getFullYear()}-01-01`, end }
+    if (preset === 'custom') return { start: customStart <= customEnd ? customStart : customEnd, end: customStart <= customEnd ? customEnd : customStart }
+    const days = Number(preset)
+    return { start: offsetDateKey(end, -(days - 1)), end }
+  }, [customEnd, customStart, preset])
+
+  useEffect(() => {
+    if (!supabase) return
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    Promise.all([
+      supabase.from('daily_tasks').select('id,task_date,completed_at').eq('user_id', userId).gte('task_date', range.start).lte('task_date', range.end),
+      supabase.from('routine_completions').select('id,completed_on').eq('user_id', userId).gte('completed_on', range.start).lte('completed_on', range.end),
+    ]).then(([taskResult, completionResult]) => {
+      if (cancelled) return
+      if (taskResult.error || completionResult.error) setError(taskResult.error?.message ?? completionResult.error?.message ?? 'Could not load statistics.')
+      setTasks((taskResult.data ?? []) as StatsTask[])
+      setCompletions((completionResult.data ?? []) as StatsCompletion[])
+      setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [range.end, range.start, userId])
+
+  const completedTasks = tasks.filter((task) => Boolean(task.completed_at)).length
+  const taskRate = tasks.length ? Math.round((completedTasks / tasks.length) * 100) : 0
+  const totalActivity = completedTasks + completions.length
+  const activeDays = new Set([...tasks.map((task) => task.task_date), ...completions.map((item) => item.completed_on)]).size
+  const label = preset === '7' ? 'Last 7 days' : preset === '15' ? 'Last 15 days' : preset === '30' ? 'Last 30 days' : preset === 'year' ? 'This year' : preset === 'today' ? 'Today' : preset === 'yesterday' ? 'Yesterday' : 'Custom range'
+
+  return <>
+    <section className="screen-heading"><div><p className="eyebrow">STATISTICS</p><h1>Progress</h1><p>{label} · {shortDate(dateFromKey(range.start))} – {shortDate(dateFromKey(range.end))}</p></div><AppIcon name="chart" /></section>
+    <section className="stats-panel">
+      <div className="stats-presets" aria-label="Statistics date range">
+        {([['today', 'Today'], ['yesterday', 'Yesterday'], ['7', '7 days'], ['15', '15 days'], ['30', '30 days'], ['year', 'Year'], ['custom', 'Custom']] as [StatsPreset, string][]).map(([value, text]) => <button key={value} className={preset === value ? 'active' : ''} onClick={() => setPreset(value)}>{text}</button>)}
+      </div>
+      {preset === 'custom' && <div className="stats-custom-range"><label>From<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} /></label><label>To<input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} /></label></div>}
+    </section>
+    {loading ? <section className="stats-loading" role="status">Loading metrics…</section> : error ? <section className="empty-state load-failure"><div className="empty-icon">!</div><h2>Statistics unavailable</h2><p>{error}</p></section> : <section className="stats-grid">
+      <article className="stat-card stat-primary"><span>Tasks completed</span><strong>{completedTasks}<small> / {tasks.length}</small></strong><em>{taskRate}% completion rate</em></article>
+      <article className="stat-card"><span>Routine completions</span><strong>{completions.length}</strong><em>Recorded in this period</em></article>
+      <article className="stat-card"><span>Total completed actions</span><strong>{totalActivity}</strong><em>Tasks + routines</em></article>
+      <article className="stat-card"><span>Active days</span><strong>{activeDays}</strong><em>Days with activity</em></article>
+    </section>}
+  </>
 }
 
 function TaskLoadingState() {

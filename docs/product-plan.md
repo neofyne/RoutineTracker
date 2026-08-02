@@ -9,6 +9,7 @@ DayPlan is a calm, spreadsheet-like personal productivity app with two deliberat
 
 1. **Routine Tracker** for recurring practices, recorded in weekly grids with a per-routine running completion count.
 2. **Daily Tasks** for one-time tasks, organised by date with quick completion and a deliberate Move to tomorrow action.
+3. **Statistics** for compact, date-ranged progress metrics without changing the underlying history.
 
 The app should feel fast, focused, and premium rather than gamified or visually noisy. It must retain all history and restore it after a device change.
 
@@ -74,6 +75,8 @@ The visual direction is **enterprise-grade personal productivity**: calm, precis
 - Responsive mobile-first UI with desktop spreadsheet comfort.
 - Light and dark themes.
 - Loading, empty, offline, and error states.
+- Week changes are view filters only: routine completions and dated tasks remain stored by their own dates and are never reset when the calendar week changes.
+- Statistics presets: today, yesterday, 7 days (default), 15 days, 30 days, year, and custom date range. The primary metric is completed tasks out of all tasks in the selected period.
 
 ## 3. Explicitly deferred after V1
 
