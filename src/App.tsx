@@ -872,6 +872,7 @@ function TaskEditor({ task, moving, onClose, onSave, onMoveToTomorrow, onArchive
 type StatsPreset = 'today' | 'yesterday' | '7' | '15' | '30' | 'year' | 'custom'
 type StatsTask = { id: string; task_date: string; completed_at: string | null }
 type StatsCompletion = { id: string; completed_on: string }
+type StatsRoutine = { id: string; started_on: string; archived_at: string | null }
 
 function Statistics({ userId }: { userId: string }) {
   const [preset, setPreset] = useState<StatsPreset>('7')
@@ -879,6 +880,7 @@ function Statistics({ userId }: { userId: string }) {
   const [customEnd, setCustomEnd] = useState(dateKey(today))
   const [tasks, setTasks] = useState<StatsTask[]>([])
   const [completions, setCompletions] = useState<StatsCompletion[]>([])
+  const [routines, setRoutines] = useState<StatsRoutine[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -900,11 +902,13 @@ function Statistics({ userId }: { userId: string }) {
     Promise.all([
       supabase.from('daily_tasks').select('id,task_date,completed_at').eq('user_id', userId).gte('task_date', range.start).lte('task_date', range.end),
       supabase.from('routine_completions').select('id,completed_on').eq('user_id', userId).gte('completed_on', range.start).lte('completed_on', range.end),
-    ]).then(([taskResult, completionResult]) => {
+      supabase.from('routines').select('id,started_on,archived_at').eq('user_id', userId),
+    ]).then(([taskResult, completionResult, routineResult]) => {
       if (cancelled) return
-      if (taskResult.error || completionResult.error) setError(taskResult.error?.message ?? completionResult.error?.message ?? 'Could not load statistics.')
+      if (taskResult.error || completionResult.error || routineResult.error) setError(taskResult.error?.message ?? completionResult.error?.message ?? routineResult.error?.message ?? 'Could not load statistics.')
       setTasks((taskResult.data ?? []) as StatsTask[])
       setCompletions((completionResult.data ?? []) as StatsCompletion[])
+      setRoutines((routineResult.data ?? []) as StatsRoutine[])
       setLoading(false)
     })
     return () => { cancelled = true }
@@ -913,7 +917,24 @@ function Statistics({ userId }: { userId: string }) {
   const completedTasks = tasks.filter((task) => Boolean(task.completed_at)).length
   const taskRate = tasks.length ? Math.round((completedTasks / tasks.length) * 100) : 0
   const totalActivity = completedTasks + completions.length
+  const routineDays = Math.max(1, Math.round((dateFromKey(range.end).getTime() - dateFromKey(range.start).getTime()) / 86400000) + 1)
+  const routineSlots = Array.from({ length: routineDays }, (_, index) => offsetDateKey(range.start, index)).reduce((total, day) => total + routines.filter((routine) => routine.started_on <= day && (!routine.archived_at || routine.archived_at.slice(0, 10) >= day)).length, 0)
+  const routineRate = routineSlots ? Math.round((completions.length / routineSlots) * 100) : 0
+  const plannedDays = new Set(tasks.map((task) => task.task_date)).size
+  const completedDays = new Set([...tasks.filter((task) => task.completed_at).map((task) => task.task_date), ...completions.map((item) => item.completed_on)])
   const activeDays = new Set([...tasks.map((task) => task.task_date), ...completions.map((item) => item.completed_on)]).size
+  const streakDays = Array.from(completedDays).sort()
+  let bestStreak = 0
+  let runningStreak = 0
+  streakDays.forEach((day, index) => {
+    const previous = index > 0 ? dateFromKey(streakDays[index - 1]) : null
+    const current = dateFromKey(day)
+    runningStreak = previous && Math.round((current.getTime() - previous.getTime()) / 86400000) === 1 ? runningStreak + 1 : 1
+    bestStreak = Math.max(bestStreak, runningStreak)
+  })
+  const todayKey = dateKey(today)
+  let currentStreak = 0
+  for (let cursor = todayKey; cursor >= range.start && completedDays.has(cursor); cursor = offsetDateKey(cursor, -1)) currentStreak += 1
   const label = preset === '7' ? 'Last 7 days' : preset === '15' ? 'Last 15 days' : preset === '30' ? 'Last 30 days' : preset === 'year' ? 'This year' : preset === 'today' ? 'Today' : preset === 'yesterday' ? 'Yesterday' : 'Custom range'
 
   return <>
@@ -925,10 +946,11 @@ function Statistics({ userId }: { userId: string }) {
       {preset === 'custom' && <div className="stats-custom-range"><label>From<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} /></label><label>To<input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} /></label></div>}
     </section>
     {loading ? <section className="stats-loading" role="status">Loading metrics…</section> : error ? <section className="empty-state load-failure"><div className="empty-icon">!</div><h2>Statistics unavailable</h2><p>{error}</p></section> : <section className="stats-grid">
-      <article className="stat-card stat-primary"><span>Tasks completed</span><strong>{completedTasks}<small> / {tasks.length}</small></strong><em>{taskRate}% completion rate</em></article>
-      <article className="stat-card"><span>Routine completions</span><strong>{completions.length}</strong><em>Recorded in this period</em></article>
+      <article className="stat-card stat-primary"><span>Tasks completed</span><strong>{completedTasks}<small> / {tasks.length}</small></strong><em>{taskRate}% of all dated task instances</em></article>
+      <article className="stat-card"><span>Routine completions</span><strong>{completions.length}<small> / {routineSlots}</small></strong><em>{routineRate}% of planned routine slots</em></article>
+      <article className="stat-card"><span>Completed days</span><strong>{completedDays.size}<small> / {Math.max(activeDays, plannedDays)}</small></strong><em>Days with at least one win</em></article>
+      <article className="stat-card"><span>Current streak</span><strong>{currentStreak}<small> days</small></strong><em>Best streak: {bestStreak} days</em></article>
       <article className="stat-card"><span>Total completed actions</span><strong>{totalActivity}</strong><em>Tasks + routines</em></article>
-      <article className="stat-card"><span>Active days</span><strong>{activeDays}</strong><em>Days with activity</em></article>
     </section>}
   </>
 }
